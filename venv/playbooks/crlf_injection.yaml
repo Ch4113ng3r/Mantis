@@ -1,0 +1,24 @@
+id: CRLF
+name: CRLF Injection / HTTP Header Injection
+cwe:
+- CWE-113
+owasp: A03:2021 Injection
+severity_range: Medium - High
+description: User input is included in HTTP response headers without sanitization, allowing header injection, response splitting,
+  or XSS via injected headers.
+detection:
+  payloads:
+  - '%0d%0aSet-Cookie:crlftest=1'
+  - '%0d%0aX-Injected:true'
+  - '%0d%0a%0d%0a<script>alert(1)</script>'
+  - '\r\nX-Injected: true'
+  - '%E5%98%8A%E5%98%8DX-Injected:true'
+  strategy:
+  - 1. Find parameters reflected in response headers (Location, Set-Cookie)
+  - 2. Inject %0d%0a (CRLF) followed by a new header
+  - 3. Check if the injected header appears in the response
+  - 4. Test for full response splitting with double CRLF
+  - 5. Try Unicode normalization bypasses for WAF evasion
+evidence_needed: Injected header appears in HTTP response
+references:
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/CRLF%20Injection

@@ -1,0 +1,24 @@
+id: FILE_UPLOAD
+name: Unrestricted File Upload
+cwe:
+- CWE-434
+owasp: A04:2021 Insecure Design
+severity_range: High - Critical
+description: Application allows uploading files without proper validation of type, content, or storage location, potentially
+  leading to RCE.
+detection:
+  strategy:
+  - 1. Upload a file with web shell extension (.php, .jsp, .aspx, .py)
+  - '2. If blocked, try double extension: shell.php.jpg'
+  - '3. Try null byte: shell.php%00.jpg'
+  - 4. Try Content-Type manipulation (image/jpeg with PHP content)
+  - '5. Try case variation: shell.PhP, shell.pHp'
+  - 6. Upload SVG with XSS payload
+  - 7. Upload HTML file for stored XSS
+  - 8. Upload .htaccess to change file handling (Apache)
+  - 9. Test file overwrite (upload with path traversal in filename)
+  - 10. Check if uploaded files are served with Content-Disposition or directly executed
+evidence_needed: Uploaded web shell accessible and executing server-side code, or uploaded file causing XSS
+references:
+- https://portswigger.net/web-security/file-upload
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload%20Insecure%20Files

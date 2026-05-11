@@ -1,0 +1,16 @@
+id: ZIPSLIP
+name: ZipSlip Path Traversal
+cwe:
+- CWE-22
+owasp: A01:2021 Broken Access Control
+severity_range: High
+description: ZIP archive extraction without path validation allows file write outside intended directory.
+detection:
+  strategy:
+  - Find features that extract ZIP/TAR/RAR archives
+  - Create archive with file named '../../../etc/cron.d/evil'
+  - Upload and trigger extraction
+  - Check if file appears outside the upload directory
+evidence_needed: File written outside intended directory via archive extraction
+references:
+- https://snyk.io/research/zip-slip-vulnerability

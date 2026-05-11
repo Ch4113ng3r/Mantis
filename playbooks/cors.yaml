@@ -1,0 +1,20 @@
+id: CORS
+name: CORS Misconfiguration
+cwe:
+- CWE-942
+owasp: A01:2021 Broken Access Control
+severity_range: Medium - High
+description: Overly permissive CORS policy allows attacker-controlled websites to read responses from the target API.
+detection:
+  strategy:
+  - '1. Send request with Origin: https://evil.com header'
+  - 2. Check if Access-Control-Allow-Origin reflects the evil origin
+  - '3. Check if Access-Control-Allow-Credentials: true is set'
+  - '4. Test with Origin: null'
+  - '5. Test with subdomain patterns: https://evil.target.com'
+  - '6. Test with prefix/suffix: https://target.com.evil.com'
+  - 7. Check preflight (OPTIONS) responses for overly permissive headers
+evidence_needed: Server reflects arbitrary Origin with credentials allowed, or allows null origin with credentials
+references:
+- https://portswigger.net/web-security/cors
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/CORS%20Misconfiguration

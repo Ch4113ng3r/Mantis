@@ -1,0 +1,31 @@
+id: OPEN_REDIRECT
+name: Open Redirect
+cwe:
+- CWE-601
+owasp: A01:2021 Broken Access Control
+severity_range: Low - Medium
+description: Application redirects users to URLs specified in parameters without validation, enabling phishing and OAuth token
+  theft.
+detection:
+  payloads:
+  - https://evil.com
+  - //evil.com
+  - \\evil.com
+  - /\evil.com
+  - https://target.com@evil.com
+  - https://evil.com#target.com
+  - //evil%2Ecom
+  - https:evil.com
+  - http://evil.com%2f%2f.target.com
+  - ////evil.com
+  - https://evil.com/.target.com
+  strategy:
+  - 1. Find redirect parameters (url=, next=, redirect=, return=, goto=, continue=, dest=)
+  - 2. Test with external URLs
+  - '3. Try bypasses: protocol-relative, backslash, URL encoding'
+  - 4. Check OAuth callbacks for redirect manipulation
+  - 5. Test login/logout redirect flows
+evidence_needed: Application redirects to attacker-controlled domain
+references:
+- https://portswigger.net/web-security/open-redirect
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Open%20Redirect

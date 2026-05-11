@@ -1,0 +1,9 @@
+# One-time setup
+python -m venv venv
+.\venv\Scripts\activate          # Windows
+pip install -e .
+export ANTHROPIC_API_KEY="sk-ant-..."
+
+# Run engagements
+mantis doctor
+mantis engage --mode webapp --target http://testphp.vulnweb.com --depth quick

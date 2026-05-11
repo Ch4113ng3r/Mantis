@@ -1,0 +1,18 @@
+id: HOST_HEADER
+name: Host Header Injection
+cwe:
+- CWE-644
+owasp: A05:2021 Security Misconfiguration
+severity_range: Medium - High
+description: Application trusts the Host header for URL generation, enabling password reset poisoning, cache poisoning, or
+  SSRF.
+detection:
+  strategy:
+  - 1. Change Host header to attacker.com — check response for reflected domain
+  - 2. Test password reset with modified Host header — does the reset link use attacker domain?
+  - 3. Try X-Forwarded-Host, X-Host, X-Forwarded-Server headers
+  - 4. Test with absolute URL in request line + different Host header
+  - '5. Test Host header with port: target.com:attacker.com'
+evidence_needed: Password reset link pointing to attacker domain, or application behavior changing based on injected Host
+references:
+- https://portswigger.net/web-security/host-header

@@ -1,0 +1,14 @@
+mantis_playbooks_version: '1.1'
+total_playbooks: 35
+description: MANTIS vulnerability playbooks. Each file contains detection payloads, strategies, escalation paths, and AI research
+  hints for a specific vulnerability class.
+usage: Playbooks are loaded by the ExploitationPhase and injected into the agent's system prompt during hunt mode. They guide
+  but don't constrain the agent — the AI can always research beyond the playbook.
+sources:
+- OWASP Testing Guide v4.2
+- PortSwigger Web Security Academy
+- HackerOne Hacktivity (public disclosures)
+- PayloadsAllTheThings (swisskyrepo)
+- HackTricks
+- OWASP Cheat Sheet Series
+- CWE/CAPEC databases

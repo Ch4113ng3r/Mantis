@@ -1,0 +1,16 @@
+id: PADDING_ORACLE
+name: Padding Oracle Attack
+cwe:
+- CWE-327
+owasp: A02:2021 Cryptographic Failures
+severity_range: Critical
+description: CBC-mode encryption with verbose padding errors allows full plaintext recovery and forgery.
+detection:
+  strategy:
+  - Identify base64-encoded ciphertext in cookies, view state, or URL parameters
+  - Modify the last byte and observe response differences
+  - Look for distinct errors for padding failure vs decryption failure
+  - Use PadBuster or padding-oracle tools to extract plaintext
+evidence_needed: Different error responses for valid vs invalid padding
+references:
+- https://en.wikipedia.org/wiki/Padding_oracle_attack

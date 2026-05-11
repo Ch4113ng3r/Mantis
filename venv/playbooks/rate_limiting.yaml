@@ -1,0 +1,20 @@
+id: RATE_LIMIT
+name: Rate Limiting & Resource Exhaustion
+cwe:
+- CWE-770
+- CWE-799
+owasp: API4:2023 Unrestricted Resource Consumption
+severity_range: Low - Medium
+description: Application lacks proper rate limiting, allowing brute force, enumeration, or denial of service.
+detection:
+  strategy:
+  - 1. Test login endpoint for brute force (100+ attempts with wrong password)
+  - 2. Test OTP/MFA code for brute force (6-digit = 1M combinations)
+  - 3. Test password reset for enumeration (rate limit on email submission)
+  - 4. Test API endpoints for excessive requests
+  - 5. Check for IP-based vs account-based rate limiting
+  - 6. Test if rate limits can be bypassed via X-Forwarded-For header
+  - 7. Test if rate limits reset on parameter change (adding whitespace to email)
+evidence_needed: Ability to send unlimited requests to sensitive endpoints without being blocked
+references:
+- https://owasp.org/API-Security/editions/2023/en/0xa4-unrestricted-resource-consumption/

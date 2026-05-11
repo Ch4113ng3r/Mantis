@@ -1,0 +1,17 @@
+id: VERB_TAMPERING
+name: HTTP Verb Tampering
+cwe:
+- CWE-650
+owasp: A01:2021 Broken Access Control
+severity_range: Medium - High
+description: Authorization checks tied to specific HTTP methods can be bypassed using alternate verbs.
+detection:
+  strategy:
+  - Identify endpoints with method-based authorization
+  - Try replacing GET with HEAD, OPTIONS, TRACE
+  - Try replacing POST/PUT/DELETE with each other
+  - Test arbitrary method names (CONNECT, PATCH, etc.)
+  - Test X-HTTP-Method-Override header
+evidence_needed: Authorization bypass via alternate HTTP method
+references:
+- https://owasp.org/www-community/Improper_Data_Validation

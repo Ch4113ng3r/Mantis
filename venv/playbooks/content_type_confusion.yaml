@@ -1,0 +1,16 @@
+id: CONTENT_TYPE_CONFUSION
+name: Content-Type Confusion
+cwe:
+- CWE-436
+owasp: A05:2021 Security Misconfiguration
+severity_range: Medium - High
+description: Endpoints that parse multiple Content-Types may have different validation paths.
+detection:
+  strategy:
+  - Find JSON endpoints — try sending same data as form-urlencoded or XML
+  - Find form endpoints — try sending as JSON
+  - Test if validation differs based on parser (e.g., CSRF token check only on JSON)
+  - Test XML endpoints for being JSON-parseable (bypassing XML schema validation)
+evidence_needed: Bypass of validation or auth by switching Content-Type
+references:
+- https://portswigger.net/research/json-interoperability-vulnerabilities

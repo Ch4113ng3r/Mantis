@@ -1,0 +1,27 @@
+id: SUBDOMAIN_TAKEOVER
+name: Subdomain Takeover
+cwe:
+- CWE-284
+owasp: A05:2021 Security Misconfiguration
+severity_range: High - Critical
+description: DNS records point to external services (GitHub Pages, AWS S3, Heroku, etc.) that are no longer configured, allowing
+  an attacker to claim the subdomain.
+detection:
+  strategy:
+  - 1. Enumerate all subdomains (crt.sh, DNS brute, web archive)
+  - 2. Resolve each subdomain's CNAME record
+  - 3. Check if CNAME points to a service that returns 404/not found
+  - 4. Verify the service allows claiming the subdomain
+  - '5. Common vulnerable services: GitHub Pages, Heroku, AWS S3, Shopify, Fastly, Ghost, Pantheon'
+  fingerprints:
+    github_pages: There isn't a GitHub Pages site here.
+    heroku: No such app
+    aws_s3: NoSuchBucket
+    shopify: Sorry, this shop is currently unavailable
+    fastly: 'Fastly error: unknown domain'
+    ghost: The thing you were looking for is no longer here
+    pantheon: 404 error unknown site
+    tumblr: There's nothing here.
+evidence_needed: Dangling CNAME pointing to unclaimed service, and ability to register/claim the resource
+references:
+- https://github.com/EdOverflow/can-i-take-over-xyz

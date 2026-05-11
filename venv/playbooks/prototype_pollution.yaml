@@ -1,0 +1,29 @@
+id: PROTOTYPE_POLLUTION
+name: Prototype Pollution
+cwe:
+- CWE-1321
+owasp: A03:2021 Injection
+severity_range: Medium - High
+description: JavaScript prototype chain manipulation via user input, potentially leading to XSS, privilege escalation, or
+  RCE in Node.js.
+detection:
+  payloads:
+    json_body:
+    - '{"__proto__": {"isAdmin": true}}'
+    - '{"constructor": {"prototype": {"isAdmin": true}}}'
+    - '{"__proto__": {"polluted": "yes"}}'
+    query_params:
+    - __proto__[polluted]=yes
+    - constructor[prototype][polluted]=yes
+    - __proto__.polluted=yes
+  strategy:
+  - 1. Identify JavaScript applications (Node.js, Express)
+  - 2. Test JSON body with __proto__ key
+  - 3. Test query/form parameters with __proto__[] syntax
+  - 4. Check if polluted properties appear in subsequent responses
+  - 5. Look for property checks (isAdmin, role, debug) that can be polluted
+  - 6. Test server-side prototype pollution for RCE (Node.js child_process options)
+evidence_needed: Polluted property affecting application behavior (privilege escalation, XSS gadget, or RCE)
+references:
+- https://portswigger.net/web-security/prototype-pollution
+- https://github.com/niceplaces/prototype-pollution

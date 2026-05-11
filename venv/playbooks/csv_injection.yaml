@@ -1,0 +1,22 @@
+id: CSV_INJECTION
+name: CSV/Formula Injection
+cwe:
+- CWE-1236
+owasp: A03:2021 Injection
+severity_range: Medium
+description: Spreadsheet formula injection via CSV export — formulas execute when opened in Excel.
+detection:
+  payloads:
+  - =cmd|'/c calc'!A1
+  - =HYPERLINK("http://attacker.com","Click")
+  - '@SUM(1+1)'
+  - +1+1
+  - -1+1
+  - DDE("cmd","/c calc","_")
+  strategy:
+  - Find features that export user data to CSV/XLSX
+  - Submit data starting with =, @, +, - characters
+  - Download the export and check if formulas appear unescaped
+evidence_needed: Formula characters preserved in exported file
+references:
+- https://owasp.org/www-community/attacks/CSV_Injection

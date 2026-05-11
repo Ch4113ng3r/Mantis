@@ -1,0 +1,68 @@
+# MANTIS Default Configuration
+# Copy to ~/.mantis/config.yaml and customize
+
+llm:
+  default_provider: anthropic
+  providers:
+    anthropic:
+      api_key: ${ANTHROPIC_API_KEY}
+      models:
+        triage: claude-haiku-4-5-20251001
+        scanner: claude-sonnet-4-20250514
+        verifier: claude-opus-4-20250514
+        exploiter: claude-sonnet-4-20250514
+
+engagement:
+  max_concurrent_agents: 5
+  human_approval_required: true
+  auto_checkpoint_interval: 30
+  max_token_budget_usd: 50.0
+
+network:
+  docker_image: mantis-kali
+  nmap_args: "-sV -sC"
+  port_range: "1-10000"
+  timeout_seconds: 300
+
+webapp:
+  max_crawl_depth: 5
+  max_urls: 500
+  user_agent: "MANTIS/1.0 Security Scanner"
+  follow_redirects: true
+  exclude_patterns:
+    - "*/logout*"
+    - "*/static/*"
+    - "*/assets/*"
+
+codereview:
+  spot_check_ratio: 0.20
+  recalibration_threshold: 5
+  max_context_tokens: 800
+  skip_patterns:
+    - "*/test_*"
+    - "*/migrations/*"
+    - "*/__pycache__/*"
+    - "*/vendor/*"
+    - "*/node_modules/*"
+
+report:
+  formats: [markdown, json, html]
+  include_evidence: true
+  include_remediation: true
+  cvss_version: "3.1"
+
+storage:
+  db_path: ~/.mantis/mantis.db
+  knowledge_graph: ~/.mantis/knowledge_graph.json
+  mechanism_memory: ~/.mantis/mechanisms.jsonl
+  results_dir: ~/.mantis/results
+
+# Out-of-Band callback configuration (v1.2)
+oob:
+  enabled: true
+  mode: interactsh                  # interactsh, local, webhook
+  local_port: 8888                  # Port for local callback server
+  external_url: ""                  # Your public IP/domain for local mode
+  interactsh_server: oast.fun       # interact.sh server
+  wait_seconds: 10                  # How long to wait for callbacks
+  # webhook_token: ""              # webhook.site token for webhook mode

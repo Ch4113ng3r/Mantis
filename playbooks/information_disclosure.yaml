@@ -1,0 +1,22 @@
+id: INFO_DISCLOSURE
+name: Information Disclosure
+cwe:
+- CWE-200
+- CWE-209
+owasp: A01:2021 Broken Access Control
+severity_range: Low - High
+description: Application reveals sensitive information through error messages, debug pages, backups, source code, or metadata.
+detection:
+  strategy:
+  - 1. Check for verbose error messages (stack traces, SQL errors)
+  - 2. Look for debug endpoints (/debug, /phpinfo.php, /server-info, /actuator)
+  - 3. Check .git, .svn, .env, .DS_Store, backup files (.bak, .old, ~)
+  - 4. Review robots.txt and sitemap.xml for hidden paths
+  - 5. Check response headers for server version, framework info
+  - 6. Test 404/500 error pages for information leakage
+  - 7. Check JavaScript source maps (.map files)
+  - 8. Look for API documentation endpoints (swagger.json, openapi.yaml, graphql playground)
+  - 9. Check for exposed admin panels, monitoring dashboards
+evidence_needed: 'Sensitive data exposed: credentials, internal IPs, source code, configuration, or PII'
+references:
+- https://portswigger.net/web-security/information-disclosure

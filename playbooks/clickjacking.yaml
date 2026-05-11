@@ -1,0 +1,18 @@
+id: CLICKJACKING
+name: Clickjacking / UI Redressing
+cwe:
+- CWE-1021
+owasp: A01:2021 Broken Access Control
+severity_range: Low - Medium
+description: Application can be framed by malicious websites, tricking users into clicking hidden elements.
+detection:
+  strategy:
+  - 1. Check for X-Frame-Options header (DENY or SAMEORIGIN)
+  - 2. Check for Content-Security-Policy frame-ancestors directive
+  - 3. If neither present, the page is frameable
+  - 4. Test if state-changing actions can be triggered via frame
+  - 5. Check for frame-busting JavaScript and its bypass potential
+evidence_needed: Target page can be framed by an attacker-controlled page, and state-changing actions are possible through
+  the frame
+references:
+- https://portswigger.net/web-security/clickjacking

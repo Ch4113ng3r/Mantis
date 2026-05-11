@@ -1,0 +1,23 @@
+id: GRAPHQL
+name: GraphQL Vulnerabilities
+cwe:
+- CWE-200
+- CWE-284
+owasp: API8:2023 Security Misconfiguration
+severity_range: Medium - Critical
+description: GraphQL-specific attack vectors including introspection disclosure, query complexity DoS, authorization bypass,
+  and injection.
+detection:
+  strategy:
+  - '1. Test introspection: {__schema{types{name,fields{name}}}}'
+  - 2. If introspection disabled, try field suggestion via typos
+  - 3. Test query depth/complexity limits (nested queries)
+  - 4. Test batch queries for auth bypass
+  - 5. Test for SQL/NoSQL injection in resolver arguments
+  - 6. Check for IDOR in object fields (accessing other users' data)
+  - 7. Test mutations for mass assignment
+  - 8. Check for directive injection
+evidence_needed: Schema disclosure, unauthorized data access, or injection via GraphQL queries
+references:
+- https://portswigger.net/web-security/graphql
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/GraphQL%20Injection

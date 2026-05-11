@@ -1,0 +1,16 @@
+id: SOURCE_MAPS
+name: Exposed Source Maps
+cwe:
+- CWE-540
+owasp: A05:2021 Security Misconfiguration
+severity_range: Medium
+description: Production .js.map files reveal original source code, internal API endpoints, and comments.
+detection:
+  strategy:
+  - Identify .js files in production
+  - Try appending .map to each
+  - Check sourceMappingURL comment in .js files
+  - Parse exposed source maps for sensitive info
+evidence_needed: Accessible .js.map files revealing original source
+references:
+- https://github.com/denandz/sourcemapper

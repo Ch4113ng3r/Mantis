@@ -1,0 +1,20 @@
+id: MFA_BYPASS
+name: Multi-Factor Authentication Bypass
+cwe:
+- CWE-308
+owasp: A07:2021 Identification and Authentication Failures
+severity_range: High - Critical
+description: Bypassing MFA/2FA enforcement through implementation flaws.
+detection:
+  strategy:
+  - 1. Complete login with valid credentials, skip MFA step — access protected page directly
+  - 2. Check if MFA code is validated client-side only
+  - 3. Test MFA code brute-force — is there rate limiting?
+  - 4. Check if backup codes are predictable or reusable
+  - 5. Test if MFA can be disabled without re-authentication
+  - 6. Check if API endpoints enforce MFA (web may, API may not)
+  - 7. Test response manipulation (change 'mfa_required':true to false)
+  - 8. Check if MFA status is stored in a modifiable cookie/parameter
+evidence_needed: Successful authentication bypass without providing valid MFA code
+references:
+- https://portswigger.net/web-security/authentication/multi-factor

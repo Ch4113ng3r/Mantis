@@ -1,0 +1,39 @@
+id: BOLA
+name: Broken Object Level Authorization (IDOR)
+cwe:
+- CWE-639
+- CWE-284
+owasp: API1:2023 Broken Object Level Authorization
+severity_range: Medium - Critical
+description: Application does not verify that the authenticated user has permission to access the requested object, allowing
+  access to other users' data by manipulating object identifiers.
+detection:
+  strategy:
+  - 1. Identify endpoints with object references (numeric IDs, UUIDs, slugs)
+  - 2. Authenticate as User A, note all object IDs in responses
+  - 3. Authenticate as User B (different role or different user)
+  - 4. Access User A's objects using User B's session
+  - 5. Compare responses — same data means BOLA exists
+  - 6. Test with unauthenticated requests too
+  - 7. Check for predictable IDs (sequential integers)
+  - 8. Test both direct object references and indirect references (filters, search)
+  - 9. Check GraphQL queries for missing authorization
+  - 10. Test batch/bulk endpoints that may skip per-object auth
+  common_patterns:
+  - /api/users/{id}/profile
+  - /api/orders/{id}
+  - /api/documents/{id}/download
+  - /api/invoices/{id}
+  - /api/messages/{id}
+  - /api/accounts/{id}/transactions
+evidence_needed: Successfully accessing another user's data by changing the object ID in the request while authenticated as
+  a different user
+ai_research_hints:
+- Test with UUIDs too — some apps use predictable UUID generation
+- Check if changing ID format works (string vs integer vs UUID)
+- Test file download endpoints with path-based references
+- Look for mass assignment on update endpoints (PATCH with extra fields)
+- Test pagination endpoints for data leakage across user boundaries
+references:
+- https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/
+- https://portswigger.net/web-security/access-control/idor

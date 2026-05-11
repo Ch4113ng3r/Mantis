@@ -1,0 +1,18 @@
+id: WEBSOCKET
+name: WebSocket Vulnerabilities
+cwe:
+- CWE-1385
+owasp: A01:2021 Broken Access Control
+severity_range: Medium - High
+description: WebSocket implementations lacking proper authentication, authorization, or input validation.
+detection:
+  strategy:
+  - 1. Identify WebSocket endpoints (ws:// or wss://)
+  - 2. Connect without authentication — does it work?
+  - 3. Test cross-site WebSocket hijacking (CSWSH)
+  - 4. Test for injection in WebSocket messages (XSS, SQLi)
+  - 5. Check if messages from other users leak through shared channels
+  - 6. Test message rate limiting
+evidence_needed: Unauthenticated WebSocket access, cross-origin hijacking, or injection via WebSocket messages
+references:
+- https://portswigger.net/web-security/websockets

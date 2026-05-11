@@ -1,0 +1,37 @@
+id: JWT
+name: JWT Vulnerabilities
+cwe:
+- CWE-345
+- CWE-347
+owasp: A02:2021 Cryptographic Failures
+severity_range: High - Critical
+description: JWT implementation flaws allowing token forgery, algorithm confusion, or information leakage.
+detection:
+  payloads:
+    none_algorithm: Set alg to 'none' and remove signature
+    alg_confusion: Change RS256 to HS256 and sign with the public key
+    weak_secret: Brute-force HMAC secret using common wordlists
+    jwk_injection: Inject JWK in header with attacker's key
+    jku_spoofing: Point jku header to attacker-controlled JWKS endpoint
+    kid_injection: SQL injection or path traversal via kid parameter
+  strategy:
+  - 1. Decode the JWT (header.payload.signature) — use base64
+  - 2. Check the algorithm (alg field in header)
+  - 3. Try alg:none — remove signature, set alg to 'none'
+  - 4. If RS256, try HS256 with the public key as HMAC secret
+  - 5. Try brute-forcing HMAC secret with common passwords
+  - 6. Check for sensitive data in payload (passwords, internal IDs)
+  - 7. Test token expiration — do expired tokens still work?
+  - 8. Test token reuse — can a token be used after logout?
+  - 9. Check kid parameter for injection (SQLi, path traversal)
+  - 10. Try modifying payload claims (role, user_id) without resigning
+evidence_needed: Forged JWT token accepted by the server, or sensitive data extracted from unencrypted payload
+ai_research_hints:
+- Check if the server validates the signature at all
+- Look for the public key in /.well-known/jwks.json or /api/keys
+- Test if the same JWT works across different services (shared secret)
+- Check if refresh tokens are properly invalidated on logout
+references:
+- https://portswigger.net/web-security/jwt
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/JSON%20Web%20Token
+- https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/

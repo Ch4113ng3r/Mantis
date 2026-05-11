@@ -1,0 +1,16 @@
+id: NEGATIVE_VALUES
+name: Business Logic - Negative Values
+cwe:
+- CWE-841
+owasp: A04:2021 Insecure Design
+severity_range: High - Critical
+description: Negative quantities or prices accepted, leading to credit instead of charge.
+detection:
+  strategy:
+  - Identify numeric parameters (quantity, amount, price)
+  - 'Submit negative values: -1, -100, -0.01'
+  - Check if order/transaction is processed with negative effect
+  - Test integer overflow boundaries (2^31, 2^63)
+evidence_needed: Transaction processed with negative value creating credit
+references:
+- https://owasp.org/www-community/Business_Logic_Vulnerabilities

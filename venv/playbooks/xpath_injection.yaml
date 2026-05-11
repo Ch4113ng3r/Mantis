@@ -1,0 +1,23 @@
+id: XPATH
+name: XPath Injection
+cwe:
+- CWE-643
+owasp: A03:2021 Injection
+severity_range: High - Critical
+description: User input is incorporated into XPath queries, allowing authentication bypass or data extraction from XML data
+  stores.
+detection:
+  payloads:
+  - ''' or ''1''=''1'
+  - ''' or ''''='''
+  - x' or name()='username' or 'x'='y
+  - admin' or '1'='1
+  - '''] | //user/*[contains(*,'''
+  strategy:
+  - 1. Identify XML-backed authentication or search features
+  - 2. Test with single quote — does it cause an error?
+  - '3. Test boolean-based: '' or ''1''=''1 (always true) vs '' or ''1''=''2 (always false)'
+  - 4. Extract data using string functions and boolean conditions
+evidence_needed: Authentication bypass or data extraction via XPath operators
+references:
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/XPATH%20Injection

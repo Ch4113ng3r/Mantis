@@ -1,0 +1,24 @@
+id: DESERIALIZATION
+name: Insecure Deserialization
+cwe:
+- CWE-502
+owasp: A08:2021 Software and Data Integrity Failures
+severity_range: High - Critical
+description: Application deserializes untrusted data, potentially allowing RCE, authentication bypass, or data tampering.
+detection:
+  indicators:
+  - 'Java: base64 ''rO0AB'' prefix, Content-Type: application/x-java-serialized-object'
+  - 'PHP: serialized strings starting with O:, a:, s:, i:'
+  - 'Python: pickle (\x80\x03), base64-encoded pickle in cookies/params'
+  - '.NET: TypeNameHandling in JSON, VIEWSTATE, BinaryFormatter'
+  - 'Ruby: Marshal.load indicators'
+  strategy:
+  - 1. Identify serialized data in cookies, hidden fields, API params
+  - 2. Recognize serialization format (Java, PHP, Python pickle, .NET)
+  - 3. Modify serialized data — does the app error or accept it?
+  - 4. Generate malicious payloads with ysoserial (Java), phpggc (PHP)
+  - 5. Test for blind deserialization via DNS/HTTP callbacks
+evidence_needed: RCE via deserialization gadget chain, or data integrity bypass
+references:
+- https://portswigger.net/web-security/deserialization
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Insecure%20Deserialization

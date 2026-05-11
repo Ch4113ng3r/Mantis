@@ -1,0 +1,25 @@
+Metadata-Version: 2.4
+Name: mantis-pt
+Version: 1.2.0
+Summary: MANTIS — AI-Powered Penetration Testing Framework
+Requires-Python: >=3.10
+Requires-Dist: httpx[http2]>=0.27.0
+Requires-Dist: httpx-ntlm>=1.4.0
+Requires-Dist: anthropic>=0.40.0
+Requires-Dist: aiosqlite>=0.20.0
+Requires-Dist: networkx>=3.2
+Requires-Dist: dnspython>=2.6.0
+Requires-Dist: beautifulsoup4>=4.12.0
+Requires-Dist: lxml>=5.0.0
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: click>=8.1.0
+Requires-Dist: rich>=13.7.0
+Requires-Dist: python-dateutil>=2.9.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
+Requires-Dist: ruff>=0.5.0; extra == "dev"
+Requires-Dist: mypy>=1.10.0; extra == "dev"
+Provides-Extra: semgrep
+Requires-Dist: semgrep>=1.70.0; extra == "semgrep"

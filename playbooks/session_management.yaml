@@ -1,0 +1,23 @@
+id: SESSION
+name: Session Management Flaws
+cwe:
+- CWE-384
+- CWE-613
+- CWE-330
+owasp: A07:2021 Identification and Authentication Failures
+severity_range: Medium - High
+description: Weaknesses in session token generation, validation, or lifecycle management.
+detection:
+  strategy:
+  - 1. Analyze session token entropy — is it predictable?
+  - '2. Test session fixation: set session ID before login, check if it changes after'
+  - 3. Test session invalidation on logout — does the old token still work?
+  - 4. Check session timeout — do sessions expire?
+  - 5. Check cookie security attributes (HttpOnly, Secure, SameSite)
+  - 6. Test concurrent session limits
+  - 7. Test session token in URL (should never be there)
+  - 8. Check if session ID changes on privilege level change
+evidence_needed: Session fixation (pre-set token works after login), session not invalidated on logout, or predictable session
+  tokens
+references:
+- https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html

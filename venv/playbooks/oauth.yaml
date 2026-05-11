@@ -1,0 +1,22 @@
+id: OAUTH
+name: OAuth / OpenID Connect Misconfiguration
+cwe:
+- CWE-287
+- CWE-346
+owasp: A07:2021 Identification and Authentication Failures
+severity_range: High - Critical
+description: OAuth implementation flaws allowing account takeover, token theft, or authorization bypass.
+detection:
+  strategy:
+  - 1. Test redirect_uri manipulation for token theft
+  - 2. Check if state parameter is validated (CSRF protection)
+  - 3. Test for authorization code reuse
+  - 4. Check if code can be exchanged without client_secret
+  - 5. Test scope escalation (request more permissions than granted)
+  - 6. Check for open redirect in redirect_uri for token leakage
+  - 7. Test implicit flow for token exposure in URL fragment
+  - 8. Check for PKCE bypass in public clients
+evidence_needed: Token theft via redirect manipulation, or account takeover via OAuth flaw
+references:
+- https://portswigger.net/web-security/oauth
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/OAuth

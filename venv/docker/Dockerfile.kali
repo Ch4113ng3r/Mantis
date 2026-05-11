@@ -1,0 +1,35 @@
+# MANTIS Kali Docker Image — Extended Tool Set
+# Build: docker build -t mantis-kali -f docker/Dockerfile.kali .
+
+FROM kalilinux/kali-rolling
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nmap \
+    nikto \
+    gobuster \
+    dirb \
+    sqlmap \
+    whatweb \
+    dnsutils \
+    dnsrecon \
+    enum4linux \
+    smbclient \
+    snmp \
+    snmpd \
+    ldap-utils \
+    nbtscan \
+    net-tools \
+    iputils-ping \
+    traceroute \
+    whois \
+    curl \
+    wget \
+    exploitdb \
+    nfs-common \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Non-root user for safety
+RUN useradd -m mantis
+USER mantis
+WORKDIR /home/mantis

@@ -1,0 +1,24 @@
+id: RACE_CONDITION
+name: Race Condition / TOCTOU
+cwe:
+- CWE-362
+owasp: A04:2021 Insecure Design
+severity_range: Medium - High
+description: Application logic can be exploited by sending concurrent requests that interfere with each other, bypassing limits
+  or duplicating resources.
+detection:
+  strategy:
+  - 1. Identify operations with limited resources (balance, coupons, votes, invites)
+  - 2. Send 10-50 concurrent identical requests using asyncio or threading
+  - 3. Check if the limit was exceeded (double-spend, duplicate redemption)
+  - 4. Test with single-use tokens (password reset, invite codes)
+  - 5. Test file upload + processing race conditions
+  - 6. Use HTTP/2 single-packet attack for precise timing
+evidence_needed: Resource limit exceeded (double spend, duplicate creation) via concurrent requests
+ai_research_hints:
+- Use HTTP/2 multiplexing to send requests in a single TCP packet for precise timing
+- Test payment/checkout flows for double-charge or free-purchase races
+- Check if database transactions use proper isolation levels
+references:
+- https://portswigger.net/web-security/race-conditions
+- https://portswigger.net/research/smashing-the-state-machine

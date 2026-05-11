@@ -1,0 +1,16 @@
+id: MFA_DOWNGRADE
+name: MFA Downgrade Attack
+cwe:
+- CWE-757
+owasp: A07:2021 Identification and Authentication Failures
+severity_range: High
+description: Falling back from strong MFA (TOTP, FIDO2) to weaker methods (SMS, email) bypasses security.
+detection:
+  strategy:
+  - Identify available MFA methods
+  - Trigger 'use a different method' or 'lost device' flow
+  - Test if downgrade to SMS/email works without re-authentication
+  - Test SIM swapping resistance
+evidence_needed: MFA fallback to weaker method without additional verification
+references:
+- https://krebsonsecurity.com/2018/05/t-mobile-employee-made-unauthorized-sim-swap-to-steal-instagram-account/

@@ -1,0 +1,19 @@
+id: REDOS
+name: Regular Expression Denial of Service
+cwe:
+- CWE-1333
+owasp: A04:2021 Insecure Design
+severity_range: Medium - High
+description: Crafted input triggers catastrophic backtracking in vulnerable regex patterns.
+detection:
+  payloads:
+  - aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!
+  - aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!
+  - '1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111'
+  strategy:
+  - Identify input validation fields (email, phone, URL)
+  - Submit long repetitive strings
+  - Measure response time — exponential growth indicates ReDoS
+evidence_needed: Response time scales exponentially with input length
+references:
+- https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS
