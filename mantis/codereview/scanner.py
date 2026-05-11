@@ -120,7 +120,15 @@ If no vulnerabilities found, respond with empty array: []
 
 
 class DeepScanPhase(Phase):
-    """Phase: deep scan source files using Claude Sonnet."""
+    """Phase: deep scan source files using Claude Sonnet.
+
+    v1.7: Mode-aware. Reads scan_depth from config and adjusts:
+    - Mode 1 Smart: scan top 50 files with static hits (current behavior)
+    - Mode 2 Investigative: scan top 100, plus 40% spot-check of low-static files,
+                            plus cross-file analysis for high-severity findings
+    - Mode 3 Deep: AI builds system understanding first, then prioritizes
+                    high-value files, scan top 150, 60% spot-check, 3-iter variants
+    """
 
     async def execute(self, context) -> dict:
         if not context.source_files:
@@ -135,22 +143,93 @@ class DeepScanPhase(Phase):
             print("    No API key configured — skipping deep scan")
             return {}
 
+        # Determine mode
+        from mantis.core.scan_modes import ScanDepth, MODE_CONFIGS
+        scan_depth_str = getattr(self.config, "scan_depth", "smart")
+        try:
+            mode = ScanDepth(scan_depth_str)
+        except ValueError:
+            mode = ScanDepth.SMART
+        mc = MODE_CONFIGS[mode]
+        print(f"    Code review mode: {mode.value.upper()} — {mc.description[:80]}")
+
         llm = AsyncLLMClient(api_key=api_key, model=model)
         scanner = DeepScanner(llm)
 
-        findings = []
-        # Scan files with static hits first (higher priority)
-        prioritized = sorted(context.source_files,
-                             key=lambda f: len(f.get("static_hits", "")),
-                             reverse=True)
+        # Mode-specific scan caps and spot-check ratios
+        scan_caps = {ScanDepth.SMART: 50, ScanDepth.INVESTIGATIVE: 100, ScanDepth.DEEP: 150}
+        spot_ratios = {ScanDepth.SMART: 0.0, ScanDepth.INVESTIGATIVE: 0.4, ScanDepth.DEEP: 0.6}
+        scan_cap = scan_caps[mode]
+        spot_ratio = spot_ratios[mode]
 
-        scan_count = min(len(prioritized), 50)  # Cap at 50 files per run
+        # Mode 3: AI system analyst builds context first
+        system_context = {}
+        if mode == ScanDepth.DEEP:
+            try:
+                from mantis.codereview.mode_aware_reviewer import CodeReviewSystemAnalyst
+                analyst = CodeReviewSystemAnalyst(llm)
+                system_context = await analyst.analyze_codebase(context.source_files)
+                if system_context.get("app_purpose"):
+                    print(f"    [Mode 3] App: {system_context['app_purpose']}")
+                if system_context.get("high_value_files"):
+                    print(f"    [Mode 3] High-value files: {len(system_context['high_value_files'])}")
+            except Exception as e:
+                print(f"    [Mode 3] System analysis failed: {e}")
+
+        # Prioritize: Mode 3 uses system analyst's high-value list, others use static hit count
+        if mode == ScanDepth.DEEP and system_context.get("high_value_files"):
+            hv = set(system_context["high_value_files"])
+            prioritized = sorted(context.source_files,
+                                 key=lambda f: (f.get("path") not in hv,
+                                                -len(f.get("static_hits", ""))))
+        else:
+            prioritized = sorted(context.source_files,
+                                 key=lambda f: len(f.get("static_hits", "")),
+                                 reverse=True)
+
+        findings = []
+        scan_count = min(len(prioritized), scan_cap)
         for i, file_meta in enumerate(prioritized[:scan_count]):
             filepath = file_meta.get("full_path", "")
             print(f"    [{i+1}/{scan_count}] Scanning {file_meta['path']}...")
             file_findings = await scanner.scan_file(filepath)
             findings.extend(file_findings)
 
+        # Spot check: Mode 2/3 randomly sample low-static-hit files
+        if spot_ratio > 0:
+            import random
+            low_priority = [f for f in context.source_files
+                            if f not in prioritized[:scan_count]]
+            spot_count = int(len(low_priority) * spot_ratio)
+            if spot_count > 0:
+                random.shuffle(low_priority)
+                print(f"    [Mode {mode.value}] Spot-checking {spot_count} additional files")
+                for file_meta in low_priority[:spot_count]:
+                    filepath = file_meta.get("full_path", "")
+                    file_findings = await scanner.scan_file(filepath)
+                    findings.extend(file_findings)
+
+        # Mode 2/3: Cross-file analysis for high-severity findings
+        if mode != ScanDepth.SMART:
+            try:
+                from mantis.codereview.mode_aware_reviewer import CrossFileAnalyzer
+                from mantis.core.findings import Severity
+                cross = CrossFileAnalyzer(llm)
+                high_sev = [f for f in findings
+                            if f.severity in (Severity.HIGH, Severity.CRITICAL)][:5]
+                for finding in high_sev:
+                    related = await cross.find_related_code(finding, context.source_files)
+                    for path in related:
+                        full = next((f.get("full_path") for f in context.source_files
+                                     if f.get("path") == path), None)
+                        if full:
+                            try:
+                                findings.extend(await scanner.scan_file(full))
+                            except Exception:
+                                continue
+            except Exception as e:
+                print(f"    Cross-file analysis error: {e}")
+
         await llm.close()
-        print(f"    Deep scan complete: {len(findings)} findings in {scan_count} files")
+        print(f"    Deep scan complete: {len(findings)} findings in {scan_count} files (mode={mode.value})")
         return {"findings": findings}

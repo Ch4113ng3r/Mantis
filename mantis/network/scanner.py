@@ -151,3 +151,55 @@ class PortScanPhase(Phase):
                 for p in result.open_ports
             ],
         }
+
+
+class NetworkVulnScanPhase(Phase):
+    """
+    v1.7: Mode-aware network vulnerability scanning.
+
+    Wraps ModeAwareNetworkScanner. After port scan completes, this phase:
+    - Mode 1: AI Haiku classifies each service, runs prioritized Kali tools
+    - Mode 2: Mode 1 + AI Sonnet interprets large tool outputs
+    - Mode 3: AI Sonnet ReAct loop owns the engagement, dispatches tools strategically
+    """
+
+    async def execute(self, context) -> dict:
+        from mantis.network.mode_aware_scanner import ModeAwareNetworkScanner
+        from mantis.core.scan_modes import ScanDepth, MODE_CONFIGS
+        from mantis.network.tools import execute_tool
+        from mantis.utils.verbose import log
+
+        scan_depth_str = getattr(self.config, "scan_depth", "smart")
+        try:
+            mode = ScanDepth(scan_depth_str)
+        except ValueError:
+            mode = ScanDepth.SMART
+
+        mc = MODE_CONFIGS[mode]
+        log.info(f"Network scan mode: {mode.value.upper()} — {mc.description[:80]}")
+
+        scanner = ModeAwareNetworkScanner(mode=mode, scope=getattr(self.config, "scope", None))
+        await scanner.initialize()
+
+        # Build services list from prior port scan results
+        open_ports = context.open_ports if hasattr(context, "open_ports") else []
+        services = [
+            {"port": p["port"], "name": p.get("service", ""), "banner": p.get("banner", "")}
+            for p in open_ports
+        ]
+
+        # Tool executor wraps the existing Docker Kali tools
+        async def tool_executor(tool_name, **kwargs):
+            return await execute_tool(tool_name, **kwargs)
+
+        findings = await scanner.scan_host(self.config.target, services, tool_executor)
+        await scanner.close()
+
+        log.info(f"Network scan complete: {len(findings)} findings, "
+                 f"{scanner.report.tools_dispatched} tools dispatched, "
+                 f"{scanner.report.tools_skipped} skipped, "
+                 f"{scanner.report.ai_classifications} AI classifications, "
+                 f"{scanner.report.ai_interpretations} interpretations, "
+                 f"{scanner.report.ai_investigations} investigations")
+
+        return {"findings": findings}

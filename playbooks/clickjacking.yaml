@@ -1,18 +1,46 @@
 id: CLICKJACKING
-name: Clickjacking / UI Redressing
+name: Clickjacking / UI Redress
 cwe:
 - CWE-1021
-owasp: A01:2021 Broken Access Control
-severity_range: Low - Medium
-description: Application can be framed by malicious websites, tricking users into clicking hidden elements.
+owasp: A05:2021 Security Misconfiguration
+severity_range: Medium - High
+description: Frame the target site in attacker's page and overlay misleading UI to trick clicks.
 detection:
   strategy:
-  - 1. Check for X-Frame-Options header (DENY or SAMEORIGIN)
-  - 2. Check for Content-Security-Policy frame-ancestors directive
-  - 3. If neither present, the page is frameable
-  - 4. Test if state-changing actions can be triggered via frame
-  - 5. Check for frame-busting JavaScript and its bypass potential
-evidence_needed: Target page can be framed by an attacker-controlled page, and state-changing actions are possible through
-  the frame
+  - 1. Check X-Frame-Options header (DENY/SAMEORIGIN expected)
+  - 2. Check CSP frame-ancestors directive
+  - 3. If both missing, target is framable
+  - '4. Build PoC: <iframe src=''target''>'
+  indicators:
+  - Missing X-Frame-Options header
+  - Missing CSP frame-ancestors directive
+  - 'X-Frame-Options: ALLOW-FROM (deprecated, ignored by modern browsers)'
+  attack_classes:
+    basic_clickjacking:
+      description: Overlay invisible iframe on attacker UI
+      severity: medium
+    drag_and_drop:
+      description: Force victim to drag content from target site
+      severity: medium
+    double_clickjacking:
+      description: Two clicks needed — first opens popup, second triggers action
+      severity: high
+    cursorjacking:
+      description: Display fake cursor pointing elsewhere from real cursor
+      severity: medium
+exploitation:
+  transfer_funds: '<style>iframe{opacity:0.01;position:absolute;top:0;left:0;width:100%;height:100%}</style>
+
+    <iframe src=''https://bank.com/transfer''></iframe>
+
+    <button>Click for free iPhone</button>'
+ai_research_hints:
+- Critical operations (transfer, delete account, change password) are highest value
+- Modern apps often have X-Frame-Options but miss CSP frame-ancestors
+- Check if frame-ancestors uses 'self' but should be 'none' for sensitive pages
+- OAuth consent screens are common clickjacking targets
+tools:
+- Clickjacker, Burp Active Scan
 references:
-- https://portswigger.net/web-security/clickjacking
+- https://owasp.org/www-community/attacks/Clickjacking
+- https://book.hacktricks.xyz/pentesting-web/clickjacking

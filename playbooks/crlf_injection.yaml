@@ -1,24 +1,41 @@
 id: CRLF
-name: CRLF Injection / HTTP Header Injection
+name: CRLF Injection / HTTP Response Splitting
 cwe:
+- CWE-93
 - CWE-113
 owasp: A03:2021 Injection
 severity_range: Medium - High
-description: User input is included in HTTP response headers without sanitization, allowing header injection, response splitting,
-  or XSS via injected headers.
+description: Inject CRLF (\r\n) into HTTP responses to split responses, inject headers, or perform XSS.
 detection:
   payloads:
-  - '%0d%0aSet-Cookie:crlftest=1'
-  - '%0d%0aX-Injected:true'
-  - '%0d%0a%0d%0a<script>alert(1)</script>'
-  - '\r\nX-Injected: true'
-  - '%E5%98%8A%E5%98%8DX-Injected:true'
-  strategy:
-  - 1. Find parameters reflected in response headers (Location, Set-Cookie)
-  - 2. Inject %0d%0a (CRLF) followed by a new header
-  - 3. Check if the injected header appears in the response
-  - 4. Test for full response splitting with double CRLF
-  - 5. Try Unicode normalization bypasses for WAF evasion
-evidence_needed: Injected header appears in HTTP response
+  - test%0d%0aHeader-Injected:%20yes
+  - test%0d%0aSet-Cookie:%20session=attacker
+  - test%0d%0a%0d%0a<html><script>alert(1)</script>
+  - test\r\nLocation:%20https://attacker.com
+  - test%E5%98%8A%E5%98%8DHeader-Injected:%20yes
+  attack_classes:
+    header_injection:
+      description: Add custom headers to response
+      exploitation: Inject Set-Cookie, X-XSS-Protection, etc.
+      severity: medium
+    response_splitting:
+      description: Split response into two — second is attacker-controlled
+      payload: test%0d%0a%0d%0aHTTP/1.1%20200%20OK%0d%0aContent-Type:%20text/html%0d%0a%0d%0a<script>alert(1)</script>
+      severity: high
+    session_fixation:
+      description: Inject Set-Cookie to fixate victim's session
+      severity: high
+    cache_poisoning_via_crlf:
+      description: Poison cache with attacker-controlled response
+      severity: high
+    xss_via_crlf:
+      description: Inject HTML body via CRLF split
+      severity: high
+ai_research_hints:
+- Check Location header endpoints (redirects) — most common CRLF vector
+- Custom logging headers, X-Forwarded-For-derived headers
+- Email subject/recipient fields (email header injection — see email_injection)
+- Cookie-setting endpoints with user input
 references:
-- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/CRLF%20Injection
+- https://owasp.org/www-community/attacks/CRLF_Injection
+- https://book.hacktricks.xyz/pentesting-web/crlf-0d-0a

@@ -1,39 +1,87 @@
 id: BOLA
-name: Broken Object Level Authorization (IDOR)
+name: Broken Object Level Authorization (BOLA / IDOR)
 cwe:
 - CWE-639
-- CWE-284
+- CWE-285
 owasp: API1:2023 Broken Object Level Authorization
-severity_range: Medium - Critical
-description: Application does not verify that the authenticated user has permission to access the requested object, allowing
-  access to other users' data by manipulating object identifiers.
+severity_range: High - Critical
+description: 'BOLA (also called IDOR) occurs when an endpoint authorizes the user but not the requested object. User A accesses
+  /api/users/A successfully; if /api/users/B works too, BOLA exists. The #1 API vulnerability per OWASP API Top 10.'
 detection:
+  prerequisites:
+  - Two test accounts at the same privilege level (User A and User B)
+  - Identify endpoints that take object IDs (user_id, order_id, document_id, account_id)
   strategy:
-  - 1. Identify endpoints with object references (numeric IDs, UUIDs, slugs)
-  - 2. Authenticate as User A, note all object IDs in responses
-  - 3. Authenticate as User B (different role or different user)
-  - 4. Access User A's objects using User B's session
-  - 5. Compare responses — same data means BOLA exists
-  - 6. Test with unauthenticated requests too
-  - 7. Check for predictable IDs (sequential integers)
-  - 8. Test both direct object references and indirect references (filters, search)
-  - 9. Check GraphQL queries for missing authorization
-  - 10. Test batch/bulk endpoints that may skip per-object auth
-  common_patterns:
-  - /api/users/{id}/profile
-  - /api/orders/{id}
-  - /api/documents/{id}/download
-  - /api/invoices/{id}
-  - /api/messages/{id}
-  - /api/accounts/{id}/transactions
-evidence_needed: Successfully accessing another user's data by changing the object ID in the request while authenticated as
-  a different user
+  - 1. As User A, make legitimate request to access User A's resource
+  - 2. Replay the same request but swap A's ID with B's ID
+  - 3. If response returns B's data with A's session, BOLA confirmed
+  - 4. Test all HTTP methods (GET reads, POST/PUT modifies, DELETE destroys)
+  - 5. Test all object types — users, orders, documents, settings, files
+  - 6. Test indirect references (predictable filenames, UUIDs leaked elsewhere)
+  - 7. Test ID enumeration — sequential IDs reveal all objects
+  attack_classes:
+    horizontal_idor:
+      description: Access peer-level user's data (User A reads User B's data).
+      techniques:
+      - GET /api/users/123/profile → swap to 124
+      - GET /api/orders/abc-xxx → swap UUID for another user's order
+      - POST /api/transfer with src_account swapped to another user's account
+      severity: high
+    vertical_idor:
+      description: Access higher-privileged resources (regular user accesses admin data).
+      techniques:
+      - GET /api/admin/users/all (as regular user)
+      - POST /api/users/123/promote (escalate self)
+      severity: critical
+    file_idor:
+      description: Access another user's uploaded files via predictable filename.
+      techniques:
+      - GET /uploads/2024/01/15/invoice_123.pdf → enumerate IDs
+      - GET /static/users/123/avatar.png → swap to 124
+      severity: medium
+    uuid_leakage_idor:
+      description: UUIDs intended to be unguessable but leak via list endpoints.
+      techniques:
+      - GET /api/orders returns full list with UUIDs
+      - Then GET /api/orders/<leaked_uuid> works without auth check
+      severity: high
+    graphql_idor:
+      description: GraphQL queries with id field — same auth bypass pattern.
+      techniques:
+      - 'query { user(id: "123") { email, ssn } } → swap id'
+      severity: high
+    blob_idor:
+      description: Direct cloud storage URLs leak data when bucket policy is permissive.
+      techniques:
+      - https://bucket.s3.amazonaws.com/users/123/private.pdf → swap to 124
+      severity: high
+exploitation:
+  automated_enumeration:
+  - Burp Intruder with numeric ID range — capture differences
+  - Burp Autorize extension — compare authenticated vs no-auth responses
+  - Custom scripts to iterate UUIDs from list endpoints
+  data_extraction:
+  - Loop through all IDs collecting PII, financial data, internal docs
+  - GDPR violation territory — even 1 leaked record matters
+  privilege_escalation:
+  - 'POST /api/users/<my_id>/role with body {"role": "admin"}'
+  - 'PATCH /api/teams/<team_id>/members/<my_id> with {"role": "owner"}'
+  - DELETE /api/users/<admin_id> (denial-of-service on admin)
 ai_research_hints:
-- Test with UUIDs too — some apps use predictable UUID generation
-- Check if changing ID format works (string vs integer vs UUID)
-- Test file download endpoints with path-based references
-- Look for mass assignment on update endpoints (PATCH with extra fields)
-- Test pagination endpoints for data leakage across user boundaries
+- 'ID fields beyond the obvious: account_number, customer_ref, file_hash, share_token'
+- Sequential IDs are gold — auto-incrementing integers leak total user count and enable mass scraping
+- UUIDs aren't safe if exposed in list endpoints, error messages, or URL fragments
+- Test BOTH the read path (GET) AND write path (PUT/PATCH/DELETE) — write access is worse
+- Check timestamp parameters too — created_at might allow filtering across users
+- JWTs sometimes contain the user_id inside — check if backend uses the JWT user_id vs URL user_id
+- Soft-deleted records often remain accessible via direct ID even after deletion
+tools:
+- Burp Autorize
+- Burp Intruder
+- AuthMatrix
+- MANTIS privilege_tester
+evidence_needed: Successful access to another user's resource via ID manipulation with the testing user's session.
 references:
 - https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/
-- https://portswigger.net/web-security/access-control/idor
+- https://portswigger.net/web-security/access-control
+- https://book.hacktricks.xyz/pentesting-web/idor

@@ -95,16 +95,13 @@ class EngagementScope:
         return True
 
     def matches_vuln_class(self, vuln_class: str) -> bool:
-        """Return True if a vuln class should be tested under this scope."""
+        """Return True if a vuln class should be tested under this scope (fuzzy match)."""
         if self.vuln_scope == VulnScope.ALL:
             return True
-        if self.vuln_scope == VulnScope.SINGLE:
-            return len(self.selected_vulns) == 1 and vuln_class.lower() in [
-                v.lower() for v in self.selected_vulns
-            ]
-        if self.vuln_scope == VulnScope.SELECTED:
-            return vuln_class.lower() in [v.lower() for v in self.selected_vulns]
-        return True
+        for selected in self.selected_vulns:
+            if _fuzzy_vuln_match(selected, vuln_class):
+                return True
+        return False
 
     def filter_endpoints(self, endpoints: list) -> list:
         """Filter a list of endpoint dicts to those in scope."""
@@ -220,3 +217,220 @@ def parse_scope_from_cli(
         scope.vuln_scope = VulnScope.ALL
 
     return scope
+
+
+
+# Synonym dictionary — maps user-input forms to canonical class names
+VULN_SYNONYMS = {
+    # SQL Injection variants
+    "sqli": ["sql injection", "sql-injection", "sql_injection", "sqlinjection", "sqli", "sql"],
+    # XSS variants
+    "xss": ["xss", "cross site scripting", "cross-site scripting", "cross_site_scripting",
+            "reflected xss", "stored xss", "dom xss", "dom-xss"],
+    # SSTI
+    "ssti": ["ssti", "server side template injection", "server-side template injection",
+             "template injection", "jinja injection", "twig injection"],
+    # Command Injection
+    "cmdi": ["cmdi", "command injection", "command-injection", "command_injection",
+             "os command injection", "shell injection", "rce", "remote code execution"],
+    # Path Traversal
+    "path_traversal": ["path traversal", "path-traversal", "lfi", "local file inclusion",
+                        "directory traversal", "file inclusion", "path traversal"],
+    # SSRF
+    "ssrf": ["ssrf", "server side request forgery", "server-side request forgery"],
+    # XXE
+    "xxe": ["xxe", "xml external entity", "xml-external-entity",
+            "external entity", "xml injection"],
+    # LDAP
+    "ldap": ["ldap", "ldap injection", "ldap-injection"],
+    # XPath
+    "xpath": ["xpath", "xpath injection", "xpath-injection"],
+    # NoSQL
+    "nosql": ["nosql", "nosql injection", "mongodb injection", "no-sql"],
+    # CRLF
+    "crlf": ["crlf", "crlf injection", "http response splitting", "header injection"],
+    # SSI
+    "ssi": ["ssi", "ssi injection", "server side includes"],
+    # Open Redirect
+    "open_redirect": ["open redirect", "open-redirect", "open_redirect", "redirect", "openredirect"],
+    # CSRF
+    "csrf": ["csrf", "cross site request forgery", "cross-site request forgery", "xsrf"],
+    # CORS
+    "cors": ["cors", "cors misconfiguration", "cross origin", "cross-origin"],
+    # Clickjacking
+    "clickjacking": ["clickjacking", "ui redress", "ui-redress", "frame injection"],
+    # JSONP
+    "jsonp": ["jsonp", "jsonp hijacking", "json hijacking"],
+    # postMessage
+    "postmessage": ["postmessage", "post message", "postmessage origin"],
+    # DOM Clobbering
+    "dom_clobbering": ["dom clobbering", "dom-clobbering", "dom_clobbering"],
+    # CSS Injection
+    "css_injection": ["css injection", "css-injection", "css_injection"],
+    # Web Storage
+    "web_storage": ["web storage", "localstorage", "sessionstorage", "web-storage"],
+    # Verb Tampering
+    "verb_tampering": ["verb tampering", "verb-tampering", "http method tampering",
+                        "http verb", "method override"],
+    # Method Override
+    "method_override": ["method override", "method-override", "http method override"],
+    # Content-Type Confusion
+    "content_type_confusion": ["content type confusion", "content-type confusion",
+                                 "ct confusion"],
+    # Host Header
+    "host_header": ["host header", "host-header", "host header injection"],
+    # Subdomain Takeover
+    "subdomain_takeover": ["subdomain takeover", "subdomain-takeover", "dangling dns"],
+    # Smuggling
+    "request_smuggling": ["request smuggling", "http smuggling", "http desync", "desync"],
+    # WebSocket
+    "websocket": ["websocket", "ws", "cswsh", "websocket hijacking"],
+    # Token Leakage
+    "token_leakage": ["token leakage", "token leak", "referer leak", "referrer leak"],
+    # Session
+    "session_fixation": ["session fixation", "session-fixation", "session management"],
+    # MFA
+    "mfa_bypass": ["mfa bypass", "mfa-bypass", "2fa bypass", "two factor bypass"],
+    # File Upload
+    "file_upload": ["file upload", "file-upload", "upload bypass", "extension bypass"],
+    # ImageTragick
+    "imagetragick": ["imagetragick", "image-tragick", "image processing rce",
+                      "imagemagick rce"],
+    # ZipSlip
+    "zipslip": ["zipslip", "zip slip", "zip-slip", "archive traversal"],
+    # PDF SSRF
+    "pdf_ssrf": ["pdf ssrf", "pdf-ssrf", "pdf generation ssrf", "wkhtmltopdf ssrf"],
+    # CSV Injection
+    "csv_injection": ["csv injection", "csv-injection", "formula injection",
+                       "spreadsheet injection"],
+    # Cache Poisoning
+    "cache_poisoning": ["cache poisoning", "cache-poisoning", "web cache poisoning"],
+    # Padding Oracle
+    "padding_oracle": ["padding oracle", "padding-oracle", "cbc padding"],
+    # Timing Attack
+    "timing_attack": ["timing attack", "timing-attack", "timing oracle"],
+    # Race Condition
+    "race_condition": ["race condition", "race-condition", "toctou", "race"],
+    # Mass Assignment
+    "mass_assignment": ["mass assignment", "mass-assignment", "mass_assignment",
+                         "autobind", "auto-binding"],
+    # Prototype Pollution
+    "prototype_pollution": ["prototype pollution", "prototype-pollution", "proto pollution"],
+    # HPP
+    "hpp": ["hpp", "http parameter pollution", "parameter pollution"],
+    # JWT
+    "jwt": ["jwt", "json web token", "jwt attack", "jwt vulnerabilities"],
+    # OAuth
+    "oauth": ["oauth", "oauth2", "oauth flaws", "oidc"],
+    # GraphQL
+    "graphql": ["graphql", "graphql injection", "graphql introspection"],
+    # gRPC
+    "grpc_reflection": ["grpc", "grpc reflection", "grpc-reflection"],
+    # ReDoS
+    "redos": ["redos", "re-dos", "regex dos", "catastrophic backtracking"],
+    # Exposed files
+    "exposed_files": ["exposed files", "exposed-files", "sensitive files",
+                       ".git exposure", "git exposure"],
+    # Source maps
+    "source_maps": ["source maps", "source-maps", "js maps", "sourcemap"],
+    # API versioning
+    "api_versioning": ["api versioning", "api-versioning", "api version bypass"],
+    # BOLA
+    "bola": ["bola", "idor", "insecure direct object reference",
+              "broken object level authorization"],
+    # BFLA
+    "bfla": ["bfla", "broken function level authorization"],
+    # Insecure Deserialization
+    "insecure_deserialization": ["insecure deserialization", "deserialization",
+                                   "unsafe deserialization", "java deserialization",
+                                   "pickle deserialization"],
+    # Information Disclosure
+    "information_disclosure": ["information disclosure", "info disclosure",
+                                "info leak", "data exposure"],
+    # SAML
+    "saml": ["saml", "saml sso", "saml vulnerabilities", "xsw", "signature wrapping"],
+    # Rate Limiting
+    "rate_limiting": ["rate limiting", "rate limit", "rate-limit", "throttle bypass"],
+    # Password Reset
+    "password_reset": ["password reset", "password-reset", "password recovery",
+                        "reset token"],
+}
+
+
+def _normalize(s: str) -> str:
+    """Normalize a string for matching: lowercase, strip, collapse spaces/dashes/underscores."""
+    return s.lower().strip().replace("-", " ").replace("_", " ")
+
+
+def _fuzzy_vuln_match(user_input: str, canonical: str) -> bool:
+    """
+    Fuzzy match user input against a canonical vuln class name.
+
+    Returns True if:
+    - User input exactly matches the canonical name (case-insensitive)
+    - User input is a known synonym in VULN_SYNONYMS
+    - User input is a substring match against the canonical or its synonyms
+    - Levenshtein distance is small (typo tolerance)
+    """
+    if not user_input or not canonical:
+        return False
+
+    ui = _normalize(user_input)
+    can = _normalize(canonical)
+
+    # Exact match
+    if ui == can:
+        return True
+
+    # Synonym match — check if user_input is a synonym of canonical
+    for canon_key, synonyms in VULN_SYNONYMS.items():
+        if _normalize(canon_key) == can:
+            if ui in [_normalize(s) for s in synonyms]:
+                return True
+
+    # Reverse: canonical might be a synonym of user_input
+    for canon_key, synonyms in VULN_SYNONYMS.items():
+        normalized_syns = [_normalize(s) for s in synonyms]
+        if ui in normalized_syns and _normalize(canon_key) == can:
+            return True
+
+    # Substring match (both directions)
+    if ui in can or can in ui:
+        return True
+
+    # Levenshtein for typos (only for short strings to avoid noise)
+    if len(ui) <= 20 and len(can) <= 20:
+        if _levenshtein(ui, can) <= 2:
+            return True
+
+    return False
+
+
+def _levenshtein(a: str, b: str) -> int:
+    """Simple Levenshtein distance for typo tolerance."""
+    if len(a) < len(b):
+        return _levenshtein(b, a)
+    if len(b) == 0:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a):
+        cur = [i + 1]
+        for j, cb in enumerate(b):
+            ins = prev[j + 1] + 1
+            del_ = cur[j] + 1
+            sub = prev[j] + (ca != cb)
+            cur.append(min(ins, del_, sub))
+        prev = cur
+    return prev[-1]
+
+
+def expand_vuln_input_to_canonical(user_input: str) -> list[str]:
+    """
+    Given a user's vuln string, return all canonical class names it could mean.
+    Useful for showing the operator what their input matched against.
+    """
+    matched = []
+    for canon_key in VULN_SYNONYMS:
+        if _fuzzy_vuln_match(user_input, canon_key):
+            matched.append(canon_key)
+    return matched

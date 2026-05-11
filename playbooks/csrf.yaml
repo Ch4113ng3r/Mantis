@@ -1,22 +1,75 @@
 id: CSRF
-name: Cross-Site Request Forgery
+name: Cross-Site Request Forgery — Comprehensive
 cwe:
 - CWE-352
 owasp: A01:2021 Broken Access Control
 severity_range: Medium - High
-description: Application does not verify that state-changing requests originate from its own pages, allowing attackers to
-  trick users into performing unintended actions.
+description: CSRF tricks a victim's browser into making authenticated requests to a target. Requires session cookies sent
+  automatically, missing CSRF tokens, and a state-changing action.
 detection:
   strategy:
   - 1. Identify state-changing endpoints (POST/PUT/DELETE)
-  - 2. Check for CSRF token in forms and requests
-  - 3. Remove the CSRF token — does the request still succeed?
-  - 4. Use a random token — does validation check the value?
-  - 5. Check if SameSite cookie attribute is set
-  - 6. Check if Origin/Referer headers are validated
-  - 7. Test if changing Content-Type bypasses CSRF protection
-  - 8. Check if GET requests perform state changes (anti-pattern)
-evidence_needed: State-changing action succeeds without valid CSRF token from a cross-origin request
+  - 2. Check for CSRF token in request (form field, header, double-submit cookie)
+  - 3. Try removing the token — does request succeed?
+  - 4. Try using another user's valid token — does it succeed?
+  - 5. Check SameSite cookie attribute (Lax/Strict prevents CSRF)
+  - 6. Test if endpoint accepts GET (CSRF via simple img tag)
+  - 7. Check CORS — wildcard ACAO + credentials defeats CSRF token
+  attack_classes:
+    no_csrf_token:
+      description: Endpoint has no CSRF token check at all.
+      exploitation:
+      - Build HTML form auto-submitted with attacker domain
+      - Use <img>/<iframe> for GET-based CSRF
+      - Use fetch with credentials for cross-origin POST
+      severity: high
+    token_not_validated:
+      description: Token sent but server doesn't verify it.
+      exploitation:
+      - Submit request with random/empty token — succeeds
+      severity: high
+    token_tied_to_user_only_not_session:
+      description: Token validates per-user, allowing attacker to use their own valid token on victim's session.
+      severity: medium
+    token_in_query_param:
+      description: Token leaks via Referer header when navigating to external site.
+      severity: medium
+    cors_misconfig_csrf:
+      description: CORS allows credentialed requests from any origin, defeating CSRF tokens.
+      exploitation:
+      - Attacker JS reads /api/csrf-token via XHR (credentialed)
+      - Attacker JS uses token in CSRF request
+      severity: high
+    samesite_lax_get_state_changing:
+      description: Lax SameSite still sends cookies on top-level GET; if GET changes state, CSRF possible.
+      severity: medium
+    json_csrf:
+      description: API accepts application/x-www-form-urlencoded for JSON endpoints.
+      exploitation:
+      - Build form posting JSON-formatted body with form Content-Type
+      - Backend parses it as JSON, bypasses CSRF check that expects form data
+      severity: high
+exploitation:
+  html_form: "<form action='https://target/api/transfer' method='POST'>\n  <input name='to' value='attacker'>\n  <input name='amount'\
+    \ value='10000'>\n</form>\n<script>document.forms[0].submit()</script>"
+  xhr_credentialed: "fetch('https://target/api/delete-account', {\n  method: 'POST',\n  credentials: 'include',\n  body: JSON.stringify({confirm:\
+    \ true})\n})"
+impact_examples:
+- Force fund transfer from victim's account
+- Change victim's email/password (account takeover)
+- Delete victim's account
+- Promote attacker to admin via victim's session
+- Submit posts/comments as victim
+ai_research_hints:
+- Check if mobile API uses session cookies — mobile-only endpoints often skip CSRF tokens
+- Admin endpoints sometimes have weaker CSRF (assumed-protected by being internal)
+- GraphQL mutations often skip CSRF (devs assume JSON Content-Type prevents form CSRF)
+- Multi-step workflows might check token only on the first step
+- Look for CSRF token in URL — leaks via Referer to third parties
+tools:
+- Burp CSRF PoC generator
+- OWASP CSRFTester
 references:
 - https://portswigger.net/web-security/csrf
-- https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html
+- https://owasp.org/www-community/attacks/csrf
+- https://book.hacktricks.xyz/pentesting-web/csrf-cross-site-request-forgery

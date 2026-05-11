@@ -48,6 +48,7 @@ PHASE_REGISTRY = {
     "tech_detect":     ("mantis.webapp.recon.tech_detect",  "TechDetectPhase"),
     "dns_enum":        ("mantis.webapp.recon.dns_enum",     "DNSEnumPhase"),
     "port_scan":       ("mantis.network.scanner",           "PortScanPhase"),
+    "network_vuln":    ("mantis.network.scanner",           "NetworkVulnScanPhase"),
     "service_detect":  ("mantis.network.service_detect",    "ServiceDetectPhase"),
     "crawl":           ("mantis.webapp.crawler",            "CrawlPhase"),
     "auth_test":       ("mantis.webapp.auth_tester",        "AuthTestPhase"),

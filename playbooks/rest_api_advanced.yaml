@@ -1,22 +1,119 @@
-id: REST_ADVANCED
-name: REST API Advanced Vulnerabilities
+id: REST_API_ADVANCED
+name: REST API Security — OWASP API Top 10 Comprehensive
 cwe:
 - CWE-285
 - CWE-915
-owasp: API OWASP Top 10
+- CWE-200
+- CWE-400
+owasp: OWASP API Security Top 10 (2023)
 severity_range: Medium - Critical
-description: OWASP API Top 10 vulnerabilities specific to REST APIs.
-detection:
-  owasp_api_top10:
-    API1_BOLA: 'Object-level auth: change /api/users/{my_id} to /api/users/{other_id}'
-    API2_Broken_Auth: JWT none, weak secrets, missing checks
-    API3_Excessive_Data: Endpoint returns more fields than UI needs
-    API4_Resource_Exhaustion: No rate limit, large pagination, expensive operations
-    API5_BFLA: 'Function-level auth: regular user accessing admin endpoint'
-    API6_Mass_Assignment: Send extra fields beyond what UI accepts
-    API7_Misconfig: Verbose errors, missing security headers, default creds
-    API8_Injection: Standard injection plus API-specific (GraphQL, SQL, NoSQL)
-    API9_Improper_Asset_Mgmt: Old API versions (v1, v0) with weaker security
-    API10_Insufficient_Logging: No detection of credential stuffing, anomalies
+description: Comprehensive testing of REST APIs against OWASP API Top 10 (2023). Each category requires specific test methodology
+  beyond generic web app testing.
+owasp_api_top_10:
+  API1_BOLA:
+    name: Broken Object Level Authorization
+    description: Endpoint authorizes user but not object access (see bola.yaml for full details).
+    test: Swap object IDs in URL/body across user sessions
+    severity: critical
+  API2_BrokenAuthentication:
+    name: Broken Authentication
+    description: JWT flaws, weak password reset, no MFA, credential stuffing tolerance.
+    tests:
+    - JWT alg=none, weak HMAC, jku/x5u injection (see jwt.yaml)
+    - 'Password reset token: predictability, reuse after use, host header poisoning'
+    - 'Rate limit on login: brute force tolerance'
+    - 'MFA: step-skip, downgrade, replay'
+    - 'Session: fixation, no expiry, parallel sessions allowed'
+    severity: critical
+  API3_BOPLA:
+    name: Broken Object Property Level Authorization
+    description: Excessive data exposure (read) or mass assignment (write).
+    tests:
+    - GET /api/users/123 returns password_hash, internal_notes, deleted flag
+    - PATCH /api/users/me with body containing role=admin
+    - GraphQL fields without per-field auth
+    severity: high
+  API4_ResourceExhaustion:
+    name: Unrestricted Resource Consumption
+    description: No rate limiting, large pagination, expensive queries.
+    tests:
+    - Send 1000 requests in parallel — any throttle?
+    - GET /api/items?limit=999999 — returns all?
+    - GET /api/search?q=* with computationally expensive filters
+    - Upload extremely large file — disk/memory exhaustion?
+    - GraphQL deep nesting / batching
+    severity: high
+  API5_BFLA:
+    name: Broken Function Level Authorization
+    description: Regular user accesses admin function.
+    tests:
+    - GET /api/admin/users as regular user
+    - POST /api/admin/users/123/disable as regular user
+    - 'HTTP method tampering: try DELETE on read-only resource'
+    severity: critical
+  API6_BusinessLogic:
+    name: Unrestricted Access to Sensitive Business Flows
+    description: Automation-friendly endpoints abused (mass account creation, scraping, etc.).
+    tests:
+    - Can you create 10000 accounts programmatically?
+    - Can you scrape all product listings via API faster than the UI allows?
+    - Can you abuse referral/reward flows?
+    severity: high
+  API7_SSRF:
+    name: Server Side Request Forgery (see ssrf.yaml)
+    severity: critical
+  API8_Misconfig:
+    name: Security Misconfiguration
+    tests:
+    - Verbose error messages leaking stack traces, framework versions
+    - Missing security headers (HSTS, CSP, X-Frame-Options)
+    - Default credentials on admin endpoints
+    - CORS wildcard with credentials
+    - Debug endpoints exposed (/swagger, /actuator, /debug)
+    severity: medium-high
+  API9_AssetMgmt:
+    name: Improper Inventory Management
+    tests:
+    - Old API versions still accessible (/api/v1 when current is v3)
+    - Beta/staging endpoints exposed in production
+    - Deprecated endpoints with weaker auth
+    - Undocumented endpoints discovered via JS, history, fuzzing
+    severity: medium-high
+  API10_UnsafeConsumption:
+    name: Unsafe Consumption of APIs
+    description: App consumes third-party API responses without validation, becoming victim.
+    tests:
+    - If app fetches from 3rd party, can attacker control 3rd party?
+    - Is response from 3rd party trusted as-is?
+    - SSRF in third-party fetches?
+    severity: medium
+detection_methodology:
+- 1. Ingest OpenAPI/Swagger spec OR discover endpoints via JS analysis, history, fuzzing
+- 2. Identify auth scheme (JWT, OAuth, API key, session cookie)
+- 3. Create 2+ test accounts at different privilege levels
+- '4. For EACH endpoint, test:'
+- '   - BOLA: swap IDs across users'
+- '   - BFLA: low-priv user accessing admin endpoint'
+- '   - Mass assignment: add unexpected fields'
+- '   - Excessive data: check response for sensitive fields'
+- '   - Rate limit: send many requests'
+- '   - HTTP method tampering: try DELETE/PUT on GET endpoints'
+- '   - Content-Type confusion: send JSON as form-urlencoded'
+- 5. Test the auth scheme itself (JWT attacks, OAuth flows)
+- 6. Test all CORS configurations
+- 7. Test all uploads / file processing
+- 8. Test all third-party integrations for SSRF
+ai_research_hints:
+- API-first apps usually have richer attack surface than UI-driven equivalents
+- GraphQL endpoints sit alongside REST — test both schemas
+- WebSocket endpoints often share session with REST but skip CSRF
+- Internal APIs (microservice-to-microservice) often have no auth at all
+- Service mesh sidecars sometimes expose admin APIs
+tools:
+- Postman/Burp for manual testing
+- MITMProxy for traffic capture
+- kiterunner / ffuf for endpoint discovery
+- Astra, Akto for automated API testing
 references:
-- https://owasp.org/API-Security/
+- https://owasp.org/API-Security/editions/2023/en/0x00-introduction/
+- https://github.com/OWASP/API-Security

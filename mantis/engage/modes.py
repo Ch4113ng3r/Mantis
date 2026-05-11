@@ -9,11 +9,11 @@ the pipeline automatically.
 ENGAGEMENT_MODES = {
     "network": {
         "phases": [
-            "port_scan", "service_detect", "vuln_scan",
+            "port_scan", "service_detect", "network_vuln",
             "exploit", "report",
         ],
         "tools": ["network"],
-        "description": "Network infrastructure pentest",
+        "description": "Network infrastructure pentest (mode-aware)",
     },
     "webapp": {
         "phases": [

@@ -1,29 +1,60 @@
-id: PROTOTYPE_POLLUTION
+id: PROTO_POLLUTION
 name: Prototype Pollution
 cwe:
 - CWE-1321
-owasp: A03:2021 Injection
-severity_range: Medium - High
-description: JavaScript prototype chain manipulation via user input, potentially leading to XSS, privilege escalation, or
-  RCE in Node.js.
+owasp: A08:2021 Software Integrity Failures
+severity_range: Medium - Critical
+description: JavaScript prototype pollution lets attackers add properties to Object.prototype, affecting ALL objects.
 detection:
   payloads:
-    json_body:
-    - '{"__proto__": {"isAdmin": true}}'
-    - '{"constructor": {"prototype": {"isAdmin": true}}}'
-    - '{"__proto__": {"polluted": "yes"}}'
-    query_params:
-    - __proto__[polluted]=yes
-    - constructor[prototype][polluted]=yes
-    - __proto__.polluted=yes
-  strategy:
-  - 1. Identify JavaScript applications (Node.js, Express)
-  - 2. Test JSON body with __proto__ key
-  - 3. Test query/form parameters with __proto__[] syntax
-  - 4. Check if polluted properties appear in subsequent responses
-  - 5. Look for property checks (isAdmin, role, debug) that can be polluted
-  - 6. Test server-side prototype pollution for RCE (Node.js child_process options)
-evidence_needed: Polluted property affecting application behavior (privilege escalation, XSS gadget, or RCE)
+    client_side:
+    - ?__proto__[mantis]=polluted
+    - ?__proto__.mantis=polluted
+    - ?constructor[prototype][mantis]=polluted
+    - ?constructor.prototype.mantis=polluted
+    server_side_json:
+    - '{"__proto__":{"mantis":"polluted"}}'
+    - '{"constructor":{"prototype":{"mantis":"polluted"}}}'
+    - '{"__proto__.mantis":"polluted"}'
+  detection_check:
+  - 'After injection, query: ({}).mantis === ''polluted'' should be true'
+  - 'Or check browser console: ({}).mantis'
+  attack_classes:
+    client_side_dom_xss:
+      description: Polluted prototype affects template rendering
+      exploitation: Pollute __proto__.template with HTML containing <script>
+      severity: high
+    server_side_rce:
+      description: Express + child_process or template lib pollution → RCE
+      exploitation:
+      - Pollute __proto__.shell or __proto__.NODE_OPTIONS
+      - Trigger code path that uses polluted property
+      severity: critical
+    auth_bypass_via_pollution:
+      description: Pollute __proto__.isAdmin or similar auth flag
+      severity: high
+    denial_of_service:
+      description: Pollute properties that crash code on access
+      severity: medium
+exploitation:
+  express_rce_via_template:
+  - Find Express app using ejs/handlebars/pug
+  - Pollute __proto__.outputFunctionName or similar template-engine internals
+  - Trigger template render → RCE
+  client_xss_via_dom:
+  - Find DOM manipulation that uses object spread or merge
+  - Pollute __proto__.innerHTML or similar DOM property
+  - Page renders with attacker-controlled HTML
+ai_research_hints:
+- Look for lodash _.merge, _.set, jQuery $.extend usage on user input
+- Object.assign with user input as source
+- Setting nested properties from URL params
+- Modern Node.js apps still vulnerable — check express-prototype-polluter
+- GitHub.com had prototype pollution leading to RCE in 2022
+tools:
+- proto-find
+- PPScan
+- PPFuzz
 references:
-- https://portswigger.net/web-security/prototype-pollution
-- https://github.com/niceplaces/prototype-pollution
+- https://github.com/HoLyVieR/prototype-pollution-nsec18
+- https://book.hacktricks.xyz/pentesting-web/deserialization/nodejs-proto-prototype-pollution

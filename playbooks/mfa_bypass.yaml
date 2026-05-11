@@ -1,20 +1,56 @@
 id: MFA_BYPASS
-name: Multi-Factor Authentication Bypass
+name: MFA Bypass — Comprehensive
 cwe:
-- CWE-308
+- CWE-287
+- CWE-303
 owasp: A07:2021 Identification and Authentication Failures
 severity_range: High - Critical
-description: Bypassing MFA/2FA enforcement through implementation flaws.
+description: Bypass second factor authentication via flow flaws, missing checks, or downgrade.
 detection:
-  strategy:
-  - 1. Complete login with valid credentials, skip MFA step — access protected page directly
-  - 2. Check if MFA code is validated client-side only
-  - 3. Test MFA code brute-force — is there rate limiting?
-  - 4. Check if backup codes are predictable or reusable
-  - 5. Test if MFA can be disabled without re-authentication
-  - 6. Check if API endpoints enforce MFA (web may, API may not)
-  - 7. Test response manipulation (change 'mfa_required':true to false)
-  - 8. Check if MFA status is stored in a modifiable cookie/parameter
-evidence_needed: Successful authentication bypass without providing valid MFA code
+  attack_classes:
+    step_skip:
+      description: After username/password, directly access post-MFA endpoint
+      exploitation:
+      - 1. Login with creds, MFA prompt appears
+      - 2. Don't enter MFA — try accessing /dashboard, /api/user directly
+      - 3. If accessible, MFA is client-side only
+      severity: critical
+    response_manipulation:
+      description: Server returns success:false but app reads only status code
+      exploitation: Intercept response, change false→true
+      severity: high
+    brute_force:
+      description: MFA code rate limiting missing or weak
+      exploitation: 6-digit code = 1M combos. If unlimited attempts, crack in minutes
+      severity: high
+    downgrade_to_sms:
+      description: User has TOTP+SMS — force SMS path, SIM-swap victim
+      severity: medium
+    recovery_code_abuse:
+      description: Recovery codes work without expiry, generated weakly
+      severity: medium
+    session_after_partial_auth:
+      description: Pre-MFA session has too much access
+      severity: high
+    mfa_not_required_for_critical_ops:
+      description: Login requires MFA but password change / email change doesn't
+      severity: high
+    race_condition_mfa:
+      description: Submit OTP many times in parallel, brute force in seconds
+      severity: high
+    totp_reuse:
+      description: Same TOTP code accepted multiple times in valid window
+      severity: medium
+exploitation:
+  step_skip: Login → ignore MFA prompt → access protected endpoints directly
+  brute_force_with_concurrency: Send 1000 parallel requests with codes 000000-001000
+  downgrade: Click 'Use SMS instead' → SIM swap → receive code
+ai_research_hints:
+- 'Test MFA on ALL critical operations: password change, email change, fund transfer'
+- Backup codes are often the weakest link — sometimes never expire
+- Mobile apps often have separate MFA flow with weaker security than web
+- Check if API endpoints bypass MFA when called with valid session token
+- Test biometric → fallback to password flow
 references:
-- https://portswigger.net/web-security/authentication/multi-factor
+- https://owasp.org/www-community/attacks/Brute_force_attack
+- https://book.hacktricks.xyz/pentesting-web/2fa-bypass

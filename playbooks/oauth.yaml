@@ -1,22 +1,75 @@
 id: OAUTH
-name: OAuth / OpenID Connect Misconfiguration
+name: OAuth 2.0 / OIDC Vulnerabilities — Comprehensive
 cwe:
-- CWE-287
-- CWE-346
-owasp: A07:2021 Identification and Authentication Failures
+- CWE-601
+- CWE-352
+- CWE-285
+owasp: A07:2021 Authentication Failures
 severity_range: High - Critical
-description: OAuth implementation flaws allowing account takeover, token theft, or authorization bypass.
+description: OAuth misconfigurations leading to account takeover via redirect_uri, state, scope, and PKCE flaws.
 detection:
-  strategy:
-  - 1. Test redirect_uri manipulation for token theft
-  - 2. Check if state parameter is validated (CSRF protection)
-  - 3. Test for authorization code reuse
-  - 4. Check if code can be exchanged without client_secret
-  - 5. Test scope escalation (request more permissions than granted)
-  - 6. Check for open redirect in redirect_uri for token leakage
-  - 7. Test implicit flow for token exposure in URL fragment
-  - 8. Check for PKCE bypass in public clients
-evidence_needed: Token theft via redirect manipulation, or account takeover via OAuth flaw
+  attack_classes:
+    redirect_uri_validation:
+      description: Loose redirect_uri validation enables token theft
+      techniques:
+      - 'Sub-path: original=https://app.com/cb → try https://app.com/cb/../evil'
+      - 'Subdomain: original=https://app.com/cb → try https://evil.app.com/cb'
+      - 'Open redirect chain: redirect_uri=https://app.com/cb?redir=evil.com'
+      - 'Localhost: redirect_uri=http://localhost/cb (attacker runs local listener)'
+      - 'Wildcard: register https://attacker.com/* if wildcard allowed'
+      - 'Different scheme: try app:// or custom URL schemes'
+      severity: critical
+    missing_state:
+      description: No state parameter → OAuth CSRF
+      exploitation: Attacker initiates flow, sends auth URL to victim, victim links attacker's account
+      severity: high
+    predictable_state:
+      description: State not random — CSRF possible
+      severity: high
+    implicit_flow_token_leak:
+      description: Access token in URL fragment leaks via referer, browser history
+      severity: high
+    code_reuse:
+      description: Authorization code accepted multiple times
+      severity: high
+    scope_upgrade:
+      description: Request additional scopes during refresh
+      severity: medium
+    pkce_bypass:
+      description: PKCE required by spec but server accepts requests without verifier
+      severity: high
+    client_secret_in_public_app:
+      description: Public OAuth client embeds secret in JS/mobile app
+      severity: high
+    id_token_signature:
+      description: OIDC id_token verification flaws (alg=none, key confusion — see jwt.yaml)
+      severity: critical
+    nonce_not_validated:
+      description: id_token nonce not bound to user session — replay attack
+      severity: high
+exploitation:
+  token_theft_via_redirect_uri:
+  - 1. Identify OAuth flow start URL
+  - 2. Build malicious link with redirect_uri pointing to attacker
+  - 3. Trick victim into clicking
+  - 4. Victim authorizes, gets redirected to attacker with token/code
+  - 5. Attacker uses token to access victim's account
+  oauth_csrf_account_link:
+  - 1. Attacker starts OAuth flow on app — gets auth URL
+  - 2. Trick victim into completing it via attacker's URL
+  - 3. Victim's existing app account now linked to attacker's OAuth identity
+  - 4. Attacker logs in via their OAuth → access victim's account
+ai_research_hints:
+- Most OAuth bugs are in redirect_uri validation — test 10+ bypass variants
+- Implicit flow is deprecated but still common in legacy SPAs
+- Check if state parameter is actually validated (some apps accept any value)
+- Mobile OAuth via custom URL schemes can be hijacked by malicious app
+- OIDC id_token may be vulnerable to standard JWT attacks (see jwt.yaml)
+tools:
+- EvilUserParam
+- OAuth Hunter
+- Burp
 references:
+- https://datatracker.ietf.org/doc/html/rfc6749
+- https://book.hacktricks.xyz/pentesting-web/oauth-to-account-takeover
 - https://portswigger.net/web-security/oauth
-- https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/OAuth
