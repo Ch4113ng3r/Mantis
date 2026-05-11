@@ -1,0 +1,17 @@
+id: DJANGO_ORM_LOOKUP
+name: Django ORM Field Lookup Injection
+cwe:
+- CWE-89
+owasp: A03:2021 Injection
+severity_range: High
+description: Django ORM filter() with user-controlled keyword arguments enables data extraction via lookup chains.
+detection:
+  strategy:
+  - Find Django endpoints accepting filter-like parameters (?filter_field__lookup=value)
+  - Test __startswith, __contains, __regex, __in lookups for data extraction
+  - Test __isnull=True/False boolean differential
+exploitation:
+- 'Original: User.objects.filter(**request.GET)'
+- 'Attack: ?username__regex=^admin&password__startswith=a (extract password char by char)'
+references:
+- https://spyclub.tech/2018/08/30/badrequests-django-orm-injection/

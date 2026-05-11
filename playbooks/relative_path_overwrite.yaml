@@ -1,0 +1,15 @@
+id: RPO
+name: Relative Path Overwrite (RPO)
+cwe:
+- CWE-22
+owasp: A03:2021 Injection
+severity_range: Medium
+description: Path confusion causing CSS/JS to load from attacker-controlled locations via path-relative includes.
+detection:
+  strategy:
+  - Find pages with path-relative <link> or <script> includes
+  - 'Test URL: /page/innocent or /page/innocent/anything'
+  - Check if relative paths resolve differently
+  - Look for content type confusion when path is reinterpreted
+references:
+- https://blog.portswigger.net/2015/02/prssi.html

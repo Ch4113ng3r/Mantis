@@ -1,0 +1,22 @@
+id: TRUSTED_TYPES_BYPASS
+name: Trusted Types Bypass
+cwe:
+- CWE-79
+owasp: A03:2021 Injection
+severity_range: High - Critical
+description: Bypassing Trusted Types CSP policies in modern browsers to achieve DOM XSS.
+detection:
+  strategy:
+  - Check CSP headers for require-trusted-types-for 'script' or trusted-types directives
+  - If present, identify all trusted type policies via document.defaultPolicy and trustedTypes.policyNames
+  - Look for policies that accept user input via createHTML, createScript, createScriptURL without proper validation
+  - Test bypass via DOM clobbering of policy names
+  - Test for unsanitized assignments to TrustedHTML sinks
+exploitation:
+- Inject HTML form/element to clobber trustedTypes.defaultPolicy reference
+- Find lax policies via window.trustedTypes.policyNames
+- Use known bypasses like DOMParser, Sanitizer API misuse
+- Test Angular/React's framework-level Trusted Types policies for weaknesses
+references:
+- https://web.dev/trusted-types/
+- https://research.securitum.com/the-curious-case-of-copy-paste/

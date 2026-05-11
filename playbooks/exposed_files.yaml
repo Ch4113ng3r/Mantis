@@ -1,0 +1,45 @@
+id: EXPOSED_FILES
+name: Exposed Sensitive Files
+cwe:
+- CWE-538
+owasp: A05:2021 Security Misconfiguration
+severity_range: High - Critical
+description: Accidentally exposed config files, version control data, or backup files containing secrets.
+detection:
+  paths:
+  - /.git/config
+  - /.git/HEAD
+  - /.svn/entries
+  - /.hg/store
+  - /.env
+  - /.env.local
+  - /.env.production
+  - /config.php.bak
+  - /wp-config.php.bak
+  - /web.config
+  - /application.properties
+  - /.DS_Store
+  - /Thumbs.db
+  - /server-status
+  - /server-info
+  - /phpinfo.php
+  - /info.php
+  - /test.php
+  - /actuator/env
+  - /actuator/heapdump
+  - /actuator/threaddump
+  - /swagger.json
+  - /openapi.json
+  - /api-docs
+  - /.aws/credentials
+  - /.docker/config.json
+  - /dump.sql
+  - /backup.sql
+  - /database.sql
+  strategy:
+  - Request each well-known sensitive path
+  - Check for 200 status with relevant content
+  - Test .bak, .old, ~, .swp variants of discovered files
+evidence_needed: 200 response with sensitive content (config, source, credentials)
+references:
+- https://github.com/internetwache/CT_subdomains

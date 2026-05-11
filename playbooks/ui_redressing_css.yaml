@@ -1,0 +1,14 @@
+id: UI_REDRESSING
+name: UI Redressing via CSS
+cwe:
+- CWE-1021
+owasp: A04:2021 Insecure Design
+severity_range: Medium
+description: Manipulating page layout via CSS injection to trick users into clicking dangerous actions.
+detection:
+  strategy:
+  - Find CSS injection points (style attribute reflection)
+  - Test if attacker can hide/move buttons via CSS
+  - Use opacity:0, position:absolute to overlay malicious elements
+references:
+- https://blog.detectify.com/security-headers/

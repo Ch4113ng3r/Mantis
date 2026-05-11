@@ -1,0 +1,16 @@
+id: WS_SMUGGLING
+name: WebSocket Smuggling
+cwe:
+- CWE-444
+owasp: A05:2021 Security Misconfiguration
+severity_range: High
+description: Upgrading HTTP to WebSocket to bypass reverse proxy authentication rules.
+detection:
+  strategy:
+  - Identify reverse proxies in front of the backend
+  - Send WebSocket Upgrade request to bypass HTTP auth filters
+  - After upgrade, send arbitrary HTTP requests over the WebSocket
+  - Check if backend processes them with elevated trust
+evidence_needed: Backend accepting authenticated requests via WebSocket upgrade
+references:
+- https://www.imperva.com/blog/exploiting-http-2-cleartext-smuggling/

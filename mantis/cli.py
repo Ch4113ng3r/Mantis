@@ -19,7 +19,7 @@ import os
 
 
 @click.group()
-@click.version_option("1.2.0", prog_name="MANTIS")
+@click.version_option("1.4.0", prog_name="MANTIS")
 def cli():
     """MANTIS — AI-Powered Penetration Testing Framework."""
     pass
@@ -43,7 +43,34 @@ def cli():
 @click.option("--oob-mode", type=click.Choice(["interactsh", "local", "webhook", "disabled"]), default="interactsh", help="OOB callback mode")
 @click.option("--oob-port", type=int, default=8888, help="Port for local OOB callback server")
 @click.option("--oob-url", default="", help="External URL for OOB callbacks (your public IP/domain)")
-def engage(mode, target, scope, depth, spec, source, budget, resume, creds, metrics_port, export_disclosures, oob_mode, oob_port, oob_url):
+@click.option("--verbose", "-v", is_flag=True, help="Verbose debugging output")
+@click.option("--trace", is_flag=True, help="Trace mode: print all request/response bodies")
+@click.option("--only-vuln", default="", help="Test only this single vulnerability class (e.g. SQLi, XSS, SSTI)")
+@click.option("--vulns", default="", help="Comma-separated list of vulnerability classes to test (e.g. SQLi,XSS,SSTI)")
+@click.option("--path", default="", help="Navigation path pattern to scan (e.g. /admin/*, /api/v2/*)")
+@click.option("--endpoint", default="", help="Specific endpoint URL to test (full URL or relative path)")
+@click.option("--http-method", default="GET", help="HTTP method for --endpoint scope (default GET)")
+@click.option("--page-description", default="", help="Mode 3 plain-English page/feature description")
+@click.option("--scan-depth", type=click.Choice(["smart", "investigative", "deep"]), default="smart",
+              help="AI scan depth: smart (Mode 1, ~$2-5), investigative (Mode 2, ~$15-40), deep (Mode 3, $50-200+)")
+def engage(mode, target, scope, depth, spec, source, budget, resume, creds, metrics_port, export_disclosures, oob_mode, oob_port, oob_url, scan_depth, verbose, trace, only_vuln, vulns, path, endpoint, http_method, page_description):
+    from mantis.utils.verbose import log as _vlog
+    if trace: _vlog.set_level("trace")
+    elif verbose: _vlog.set_level("verbose")
+
+    # Build engagement scope
+    from mantis.core.scope import parse_scope_from_cli
+    engagement_scope = parse_scope_from_cli(
+        target=target,
+        only_vuln=only_vuln,
+        vulns=vulns,
+        path=path,
+        endpoint=endpoint,
+        page_description=page_description,
+        method=http_method,
+    )
+    print(f"Scope: {engagement_scope.describe()}")
+
     """Run a penetration testing engagement."""
     from mantis.engage.runner import EngagementRunner, EngagementConfig
 
@@ -55,6 +82,8 @@ def engage(mode, target, scope, depth, spec, source, budget, resume, creds, metr
     config = EngagementConfig(
         mode=mode,
         target=target,
+        scan_depth=scan_depth,
+        scope=engagement_scope,
         scope=list(scope) if scope else [target],
         depth=depth,
         openapi_spec=spec,
@@ -97,8 +126,10 @@ def engage(mode, target, scope, depth, spec, source, budget, resume, creds, metr
 @click.option("--url", required=True, help="Target URL")
 @click.option("--functionality", default="", help="Target functionality description")
 @click.option("--objective", default="", help="Plain English description of what to test (overrides --vuln)")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose debugging output")
+@click.option("--page-description", default="", help="(Mode 3) Plain English description of a specific page or feature to investigate deeply")
 @click.option("--depth", type=click.Choice(["quick", "standard", "deep"]), default="standard")
-def hunt(vuln, url, functionality, objective, depth):
+def hunt(vuln, url, functionality, objective, page_description, depth, verbose):
     """
     Hunt for a specific vulnerability or test a business logic scenario.
 
@@ -110,10 +141,38 @@ def hunt(vuln, url, functionality, objective, depth):
     """
     from mantis.exploit.executor import ExploitationEngine, ExploitRequest
 
+    # If --page-description is provided, use the Mode 3 PageTargetedAgent
+    if page_description:
+        print(f"\n[*] Mode 3 page-targeted investigation")
+        print(f"[*] URL: {url}")
+        print(f"[*] Description: {page_description}\n")
+        from mantis.core.scan_modes import PageTargetedAgent
+        from mantis.core.llm_client import AsyncLLMClient
+        from mantis.config import load_config, get_api_key, get_model
+        import httpx as _httpx
+
+        async def _run_page():
+            cfg = load_config()
+            api_key = get_api_key(cfg)
+            if not api_key:
+                print("Error: No API key configured. Run 'mantis setup' first.")
+                return
+            sonnet = AsyncLLMClient(api_key=api_key, model=get_model(cfg, "scanner"))
+            async with _httpx.AsyncClient(verify=False, follow_redirects=True, timeout=15.0) as http:
+                agent = PageTargetedAgent(sonnet, http)
+                findings = await agent.investigate_page(url, page_description)
+            await sonnet.close()
+            print(f"\n[+] Investigation complete. {len(findings)} findings.")
+            for f in findings[:10]:
+                print(f"    [{f.severity.value.upper()}] {f.title}")
+
+        asyncio.run(_run_page())
+        return
+
     # If --objective is provided, use it as the vuln_type (freeform text)
     effective_vuln = objective if objective else vuln
     if not effective_vuln:
-        click.echo("Error: Provide either --vuln or --objective")
+        click.echo("Error: Provide --vuln, --objective, or --page-description")
         return
 
     request = ExploitRequest(

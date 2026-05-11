@@ -1,0 +1,22 @@
+id: REST_ADVANCED
+name: REST API Advanced Vulnerabilities
+cwe:
+- CWE-285
+- CWE-915
+owasp: API OWASP Top 10
+severity_range: Medium - Critical
+description: OWASP API Top 10 vulnerabilities specific to REST APIs.
+detection:
+  owasp_api_top10:
+    API1_BOLA: 'Object-level auth: change /api/users/{my_id} to /api/users/{other_id}'
+    API2_Broken_Auth: JWT none, weak secrets, missing checks
+    API3_Excessive_Data: Endpoint returns more fields than UI needs
+    API4_Resource_Exhaustion: No rate limit, large pagination, expensive operations
+    API5_BFLA: 'Function-level auth: regular user accessing admin endpoint'
+    API6_Mass_Assignment: Send extra fields beyond what UI accepts
+    API7_Misconfig: Verbose errors, missing security headers, default creds
+    API8_Injection: Standard injection plus API-specific (GraphQL, SQL, NoSQL)
+    API9_Improper_Asset_Mgmt: Old API versions (v1, v0) with weaker security
+    API10_Insufficient_Logging: No detection of credential stuffing, anomalies
+references:
+- https://owasp.org/API-Security/

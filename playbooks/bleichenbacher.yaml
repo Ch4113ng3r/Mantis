@@ -1,0 +1,16 @@
+id: BLEICHENBACHER
+name: Bleichenbacher RSA Padding Oracle (ROBOT)
+cwe:
+- CWE-327
+owasp: A02:2021 Cryptographic Failures
+severity_range: Critical
+description: RSA PKCS#1 v1.5 padding oracle leaking plaintext via TLS handshake error differentiation.
+detection:
+  tool: robot-detect
+  command: python robot-detect.py target:443
+  strategy:
+  - Run robot-detect against target
+  - Look for distinct TLS alerts for padding vs decryption failures
+  - If vulnerable, derive premaster secret
+references:
+- https://robotattack.org/

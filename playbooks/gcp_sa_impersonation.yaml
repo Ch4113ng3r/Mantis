@@ -1,0 +1,14 @@
+id: GCP_SA_IMPERSONATION
+name: GCP Service Account Impersonation
+cwe:
+- CWE-269
+owasp: A01:2021 Broken Access Control
+severity_range: Critical
+description: Misconfigured iam.serviceAccountUser bindings enable impersonation of higher-privileged SAs.
+detection:
+  strategy:
+  - 'Enumerate IAM policy bindings: gcloud projects get-iam-policy'
+  - Check iam.serviceAccountTokenCreator and iam.serviceAccountUser roles
+  - Test gcloud auth print-access-token --impersonate-service-account=...
+references:
+- https://cloud.google.com/iam/docs/impersonating-service-accounts

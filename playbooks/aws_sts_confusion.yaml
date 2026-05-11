@@ -1,0 +1,16 @@
+id: AWS_STS_CONFUSION
+name: AWS STS Cross-Account / Confused Deputy
+cwe:
+- CWE-441
+owasp: A01:2021 Broken Access Control
+severity_range: Critical
+description: AssumeRole with predictable ExternalId, missing condition keys, or wildcard trust policies enables cross-account
+  access.
+detection:
+  strategy:
+  - Find STS:AssumeRole calls in target application
+  - Check if ExternalId is required and unpredictable
+  - Test if any account can assume the role
+  - Look for IAM role trust policies with wildcard principals
+references:
+- https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html

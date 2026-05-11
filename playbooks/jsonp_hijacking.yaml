@@ -1,0 +1,17 @@
+id: JSONP_HIJACKING
+name: JSONP Hijacking
+cwe:
+- CWE-352
+owasp: A01:2021 Broken Access Control
+severity_range: Medium - High
+description: Cross-origin data theft via JSONP endpoints that don't validate callback names or referrers.
+detection:
+  strategy:
+  - Find JSONP endpoints (callback= or jsonp= parameters)
+  - Test if arbitrary callback functions are accepted
+  - Set up attacker page with <script src='target/api?callback=stealData'>
+  - Define stealData() to capture and exfiltrate the response
+  - Check if endpoint validates Referer/Origin
+evidence_needed: Cross-origin data theft via uncontrolled JSONP callback
+references:
+- https://owasp.org/www-community/attacks/JSON_Hijacking

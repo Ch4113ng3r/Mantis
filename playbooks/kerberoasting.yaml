@@ -1,0 +1,29 @@
+id: KERBEROASTING
+name: Kerberoasting Attack
+cwe: [CWE-262, CWE-916]
+owasp: A02:2021 Cryptographic Failures
+severity_range: High - Critical
+description: >
+  Requesting TGS tickets for service accounts (accounts with SPNs set) and
+  cracking the returned ticket offline to recover the service account password.
+  Detected automatically by mantis/network/ad_scanner.py:scan_kerberoastable_accounts.
+
+detection:
+  prerequisites:
+    - Domain user credentials (any account, even low-privilege)
+    - Network connectivity to a Domain Controller on port 88 (Kerberos)
+  strategy:
+    - Enumerate accounts with servicePrincipalName via LDAP
+    - Request TGS-REP for each SPN using GetUserSPNs.py or Rubeus
+    - Crack ticket hash with hashcat (mode 13100) or john (krb5tgs format)
+    - Service accounts often have weak/old passwords — high success rate
+
+exploitation_steps:
+  - 'impacket-GetUserSPNs <domain>/<user>:<pass> -dc-ip <DC> -request'
+  - 'hashcat -m 13100 hashes.txt wordlist.txt'
+  - 'On Windows: Rubeus.exe kerberoast /outfile:hashes.txt'
+
+evidence_needed: Successful TGS-REP retrieval AND password recovery via offline crack
+references:
+  - https://attack.mitre.org/techniques/T1558/003/
+  - https://www.harmj0y.net/blog/redteaming/kerberoasting-revisited/

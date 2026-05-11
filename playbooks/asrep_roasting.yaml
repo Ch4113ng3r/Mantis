@@ -1,0 +1,24 @@
+id: ASREP_ROASTING
+name: AS-REP Roasting Attack
+cwe: [CWE-262]
+owasp: A07:2021 Authentication Failures
+severity_range: High
+description: >
+  Accounts with 'Do not require Kerberos preauthentication' set allow AS-REP
+  ticket retrieval WITHOUT credentials. The encrypted blob is hash-crackable offline.
+
+detection:
+  prerequisites:
+    - Network connectivity to DC port 88 (NO credentials required!)
+  strategy:
+    - Find accounts with DONT_REQ_PREAUTH flag (UAC bit 0x400000)
+    - Request AS-REP for each using GetNPUsers.py
+    - Crack offline with hashcat mode 18200
+
+exploitation_steps:
+  - 'impacket-GetNPUsers <domain>/ -usersfile users.txt -no-pass -dc-ip <DC>'
+  - 'hashcat -m 18200 hashes.txt wordlist.txt'
+
+evidence_needed: AS-REP retrieved without authentication AND password cracked
+references:
+  - https://attack.mitre.org/techniques/T1558/004/

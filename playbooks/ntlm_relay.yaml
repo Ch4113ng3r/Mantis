@@ -1,0 +1,29 @@
+id: NTLM_RELAY
+name: NTLM Relay Attack
+cwe: [CWE-300]
+owasp: A07:2021 Authentication Failures
+severity_range: High - Critical
+description: >
+  Intercept NTLM authentication from a victim and relay it to another service.
+  If SMB signing is not required and the victim has access to the target service,
+  the attacker gains authenticated access without knowing the password.
+
+detection:
+  prerequisites:
+    - SMB signing not required on target (detected by ad_scanner.scan_smb_signing_relay)
+    - Position to coerce or capture NTLM auth (LLMNR poisoning, PetitPotam, etc.)
+
+exploitation_steps:
+  - 'Start responder for LLMNR/NBT-NS poisoning OR use PetitPotam to coerce DC auth'
+  - 'impacket-ntlmrelayx -t smb://<target> -smb2support'
+  - 'Authenticated access on target — dump SAM, execute commands, etc.'
+
+high_value_targets:
+  - LDAP (relay user auth to add user to Domain Admins)
+  - SMB (read shares, execute commands)
+  - ADCS /certsrv (ESC8 — request cert for relayed user)
+  - HTTP (custom application auth)
+
+references:
+  - https://en.hackndo.com/ntlm-relay/
+  - https://www.thehacker.recipes/ad/movement/ntlm/relay

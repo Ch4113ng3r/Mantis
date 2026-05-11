@@ -1,0 +1,19 @@
+id: HTTP_SMUGGLING_TECL
+name: HTTP Request Smuggling — TE.CL / CL.TE / TE.TE
+cwe:
+- CWE-444
+owasp: A05:2021 Security Misconfiguration
+severity_range: Critical
+description: Front-end and back-end disagree on request boundary parsing — Transfer-Encoding vs Content-Length precedence.
+detection:
+  strategy:
+  - Use Burp HTTP Request Smuggler extension
+  - Send dual-header requests with conflicting CL and TE
+  - 'Time-delay technique: smuggled request triggers SLEEP on backend'
+  - Use HTTP/2 desync (H2.CL) on modern targets
+exploitation:
+- 'POST / HTTP/1.1\r\nHost: target\r\nContent-Length: 6\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\nG'
+- Next request gets G prepended, causing methods/paths to leak
+- Use to bypass front-end auth, poison cache, capture other users' requests
+references:
+- https://portswigger.net/research/http-desync-attacks-request-smuggling-reborn

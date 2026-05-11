@@ -1,0 +1,15 @@
+id: POSTMESSAGE_ORIGIN
+name: postMessage Origin Validation Bypass
+cwe:
+- CWE-346
+owasp: A05:2021 Security Misconfiguration
+severity_range: Medium - High
+description: postMessage handlers using indexOf/regex for origin check enable bypass via subdomain or path tricks.
+detection:
+  strategy:
+  - Find addEventListener('message', ...) handlers
+  - Look for origin checks using indexOf or weak regex
+  - 'Test bypass: https://target.com.attacker.com'
+  - 'Test bypass: https://attacker.com/target.com'
+references:
+- https://www.thezdi.com/blog/2020/4/29/postmessage-vulnerabilities

@@ -1,0 +1,14 @@
+id: HOP_BY_HOP
+name: Hop-by-Hop Header Smuggling
+cwe:
+- CWE-444
+owasp: A05:2021 Security Misconfiguration
+severity_range: High
+description: 'Using Connection: header to mark security headers as hop-by-hop, causing reverse proxy to strip them.'
+detection:
+  strategy:
+  - 'Send request with Connection: X-Auth-Token, Authorization'
+  - Check if downstream server receives the request without those headers
+  - Test for auth bypass when bypass headers are stripped
+references:
+- https://nathandavison.com/blog/abusing-http-hop-by-hop-request-headers

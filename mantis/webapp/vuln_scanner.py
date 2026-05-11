@@ -1,194 +1,183 @@
 """
-Web application vulnerability scanner.
+Comprehensive web vulnerability scanner phase (v1.4 — mode-aware).
 
-Contains detection functions for common web vulnerabilities
-(XSS, SQLi, SSTI, etc.) and the VulnScanPhase for the pipeline.
+Runs the full battery of 51 scanners with AI-directed dispatch (Mode 1/2/3).
+See mantis/core/scan_modes.py for mode definitions.
 """
 
 import httpx
-from typing import Optional
 from mantis.engage.phases import Phase
-from mantis.core.findings import (
-    Finding, Severity, EvidenceLevel, FindingSource, HTTPEvidence,
-)
+from mantis.core.findings import Finding, Severity, EvidenceLevel, FindingSource, HTTPEvidence
+from mantis.core.scan_modes import ModeAwareScanner, ScanDepth, MODE_CONFIGS
 
 
-async def test_xss_reflected(
-    http: httpx.AsyncClient, url: str, param: str,
-) -> Optional[Finding]:
-    """Test a URL parameter for reflected XSS."""
-    payloads = [
-        '<script>alert(1)</script>',
-        '"><img src=x onerror=alert(1)>',
-        "\'-alert(1)-\'",
-        '{{7*7}}',  # Also checks for SSTI
-    ]
-    for payload in payloads:
-        try:
-            resp = await http.get(url, params={param: payload})
-            if payload in resp.text:
-                return Finding(
-                    title=f"Reflected XSS in \'{param}\' parameter",
-                    description=(
-                        f"The parameter \'{param}\' at {url} reflects "
-                        f"user input without sanitization."
-                    ),
-                    source=FindingSource.WEBAPP,
-                    severity=Severity.HIGH,
-                    evidence_level=EvidenceLevel.DYNAMIC_CONFIRMED,
-                    target=url, endpoint=url,
-                    vuln_type="XSS", cwe="CWE-79",
-                    owasp_category="A03:2021 Injection",
-                    payload=payload,
-                    evidence=[HTTPEvidence(
-                        request_method="GET",
-                        request_url=f"{url}?{param}={payload}",
-                        request_headers=dict(resp.request.headers),
-                        request_body=None,
-                        response_status=resp.status_code,
-                        response_headers=dict(resp.headers),
-                        response_body=resp.text[:5000],
-                        notes=f"Payload reflected in response body",
-                    )],
-                    reproduction_steps=[
-                        f"1. Navigate to {url}",
-                        f"2. Set parameter \'{param}\' to: {payload}",
-                        f"3. Observe the payload reflected without encoding",
-                    ],
-                    impact=(
-                        "An attacker can execute arbitrary JavaScript in the "
-                        "victim\'s browser, stealing sessions or performing actions."
-                    ),
-                    remediation=(
-                        "Implement context-aware output encoding. Use "
-                        "Content-Security-Policy headers."
-                    ),
-                    confidence=0.9,
-                )
-        except Exception:
-            continue
-    return None
+async def test_xss_reflected(http, url, param):
+    """Legacy compat — delegates to standard scanner."""
+    from mantis.webapp.scanners import standard
+    return await standard.scan_xss_reflected(http, url, param)
 
 
-async def test_sqli(
-    http: httpx.AsyncClient, url: str, param: str, method: str = "GET",
-) -> Optional[Finding]:
-    """Test a parameter for SQL injection using error-based detection."""
-    sql_errors = [
-        "you have an error in your sql syntax",
-        "unclosed quotation mark",
-        "quoted string not properly terminated",
-        "mysql_fetch", "pg_query", "sqlite3.operationalerror",
-        "microsoft ole db provider for sql server",
-        "ora-01756",
-    ]
-    payloads = ["\'", "\' OR \'1\'=\'1", "1 AND 1=1", "1\' AND \'1\'=\'2"]
-
-    for payload in payloads:
-        try:
-            if method.upper() == "GET":
-                resp = await http.get(url, params={param: payload})
-            else:
-                resp = await http.post(url, data={param: payload})
-
-            body_lower = resp.text.lower()
-            for error_sig in sql_errors:
-                if error_sig in body_lower:
-                    return Finding(
-                        title=f"SQL Injection in \'{param}\' parameter",
-                        description=(
-                            f"Error-based SQL injection detected in "
-                            f"\'{param}\' at {url}."
-                        ),
-                        source=FindingSource.WEBAPP,
-                        severity=Severity.CRITICAL,
-                        evidence_level=EvidenceLevel.DYNAMIC_CONFIRMED,
-                        target=url, endpoint=url,
-                        vuln_type="SQLi", cwe="CWE-89",
-                        owasp_category="A03:2021 Injection",
-                        payload=payload,
-                        evidence=[HTTPEvidence(
-                            request_method=method,
-                            request_url=url,
-                            request_headers={},
-                            request_body=f"{param}={payload}",
-                            response_status=resp.status_code,
-                            response_headers=dict(resp.headers),
-                            response_body=resp.text[:5000],
-                            notes=f"SQL error signature found: {error_sig}",
-                        )],
-                        impact="Full database access — read, modify, delete all data.",
-                        remediation="Use parameterized queries / prepared statements.",
-                        confidence=0.95,
-                    )
-        except Exception:
-            continue
-    return None
+async def test_sqli(http, url, param, method="GET"):
+    """Legacy compat — delegates to standard scanner."""
+    from mantis.webapp.scanners import standard
+    return await standard.scan_sqli_error(http, url, param, method)
 
 
 class VulnScanPhase(Phase):
-    """Phase: scan discovered endpoints for web vulnerabilities."""
+    """Phase: comprehensive vulnerability scanning with AI-directed dispatch."""
 
     async def execute(self, context) -> dict:
         findings = []
 
-        # Initialize OOB callback server if not disabled
-        oob_scanner = None
+        # Determine scan mode from config or CLI flag
+        scan_depth_str = getattr(self.config, "scan_depth", "smart")
+        try:
+            mode = ScanDepth(scan_depth_str)
+        except ValueError:
+            mode = ScanDepth.SMART
+
+        mode_config = MODE_CONFIGS[mode]
+        print(f"    Scan mode: {mode.value.upper()} — {mode_config.description[:80]}")
+
+        # Estimate cost before starting
+        endpoint_count = len(context.endpoints)
+        low, high = (
+            endpoint_count * mode_config.estimated_cost_per_endpoint * 0.5,
+            endpoint_count * mode_config.estimated_cost_per_endpoint * 2.0,
+        )
+        print(f"    Estimated AI cost: ${low:.2f} - ${high:.2f} for {endpoint_count} endpoints")
+
+        # Warn if budget is exceeded
+        if high > mode_config.budget_warning_usd:
+            print(f"    [!] WARNING: estimated cost exceeds mode warning threshold "
+                  f"(${mode_config.budget_warning_usd})")
+
+        # Initialize the mode-aware scanner
+        scanner = ModeAwareScanner(mode=mode, scope=getattr(self.config, 'scope', None))
+        await scanner.initialize()
+
+        # Initialize OOB callback infrastructure
+        cb_server = None
+        oob_cfg = {}
         try:
             from mantis.core.callback_server import CallbackServer
-            from mantis.core.oob_scanner import OOBScanner
             from mantis.config import load_config
-            config = load_config()
-            oob_config = config.get("oob", {})
-            if oob_config.get("enabled", True):
+            cfg = load_config()
+            oob_cfg = cfg.get("oob", {})
+            if oob_cfg.get("enabled", True):
                 cb_server = CallbackServer(
-                    mode=oob_config.get("mode", "interactsh"),
-                    local_port=oob_config.get("local_port", 8888),
-                    external_url=oob_config.get("external_url", ""),
+                    mode=oob_cfg.get("mode", "interactsh"),
+                    local_port=oob_cfg.get("local_port", 8888),
+                    external_url=oob_cfg.get("external_url", ""),
                 )
                 await cb_server.start()
         except Exception as e:
-            print(f"    OOB server init skipped: {e}")
-            cb_server = None
+            print(f"    OOB init skipped: {e}")
 
-        async with httpx.AsyncClient(verify=False) as http:
-            # Standard injection scanning
-            for ep in context.endpoints[:50]:
+        async with httpx.AsyncClient(
+            verify=False, follow_redirects=True,
+            headers={"User-Agent": "MANTIS/1.4 Scanner"},
+            timeout=httpx.Timeout(15.0),
+        ) as http:
+
+            # Site-level scans (these always run regardless of mode)
+            if context.endpoints:
+                base_url = context.endpoints[0].get("url", self.config.target)
+                print(f"    Running site-level scans...")
+                try:
+                    from mantis.webapp.scanners import orchestrator
+                    site_findings = await orchestrator.scan_site(http, base_url)
+                    findings.extend(site_findings)
+                    print(f"      Site-level findings: {len(site_findings)}")
+                except Exception as e:
+                    print(f"      Site-level scan error: {e}")
+
+            # Mode-aware endpoint scanning
+            scanned = 0
+            for ep in context.endpoints[:100]:  # Cap for sanity
                 url = ep.get("url", "")
-                for param in ep.get("params", []):
-                    result = await test_xss_reflected(http, url, param)
-                    if result:
-                        findings.append(result)
-                    result = await test_sqli(http, url, param)
-                    if result:
-                        findings.append(result)
+                params = ep.get("params", [])
+                method = ep.get("method", "GET")
+                try:
+                    ep_findings = await scanner.scan_endpoint(http, url, params, method)
+                    findings.extend(ep_findings)
+                    scanned += 1
+                except Exception as e:
+                    continue
 
-            # OOB blind vulnerability scanning
+            print(f"    Scanned {scanned} endpoints — "
+                  f"{scanner.report.scanners_dispatched} scanners dispatched, "
+                  f"{scanner.report.scanners_skipped} skipped via AI classification")
+            print(f"    AI calls: {scanner.report.ai_classifications} classifications, "
+                  f"{scanner.report.ai_investigations} investigations")
+            print(f"    Findings so far: {len(findings)}")
+
+            # OOB blind vulnerability scanning (always runs unless disabled)
             if cb_server:
-                oob_scanner = OOBScanner(cb_server, http)
-                oob_endpoints = context.endpoints[:30]  # Cap OOB tests
-                print(f"    Running OOB blind tests on {len(oob_endpoints)} endpoints...")
-                for ep in oob_endpoints:
-                    url = ep.get("url", "")
-                    params = ep.get("params", [])
-                    if params:
-                        oob_findings = await oob_scanner.scan_endpoint(
-                            url=url, params=params,
-                            method=ep.get("method", "GET"),
-                            wait_seconds=oob_config.get("wait_seconds", 10),
-                        )
-                        findings.extend(oob_findings)
+                try:
+                    from mantis.core.oob_scanner import OOBScanner
+                    oob_scanner = OOBScanner(cb_server, http)
+                    oob_eps = context.endpoints[:30]
+                    print(f"    Running OOB blind tests on {len(oob_eps)} endpoints...")
+                    for ep in oob_eps:
+                        url = ep.get("url", "")
+                        params = ep.get("params", [])
+                        if params:
+                            try:
+                                oob_findings = await oob_scanner.scan_endpoint(
+                                    url=url, params=params,
+                                    method=ep.get("method", "GET"),
+                                    wait_seconds=oob_cfg.get("wait_seconds", 10),
+                                )
+                                findings.extend(oob_findings)
+                            except Exception:
+                                continue
+                    # Final OOB sweep
+                    try:
+                        late = await cb_server.check_all_pending()
+                        for cb_id, callbacks in late:
+                            f = cb_server.build_finding(cb_id, callbacks)
+                            if f:
+                                findings.append(f)
+                    except Exception:
+                        pass
+                    await cb_server.stop()
+                except Exception as e:
+                    print(f"    OOB scanning error: {e}")
 
-                # Final sweep for any late callbacks
-                late_results = await cb_server.check_all_pending()
-                for cb_id, callbacks in late_results:
-                    finding = cb_server.build_finding(cb_id, callbacks)
-                    if finding:
-                        findings.append(finding)
+            # SAML scanning (if SAML auth was used)
+            try:
+                if hasattr(context, "auth_tokens") and context.auth_tokens:
+                    from mantis.webapp.saml_scanner import SAMLScanner
+                    for role, info in context.auth_tokens.items():
+                        if isinstance(info, dict) and info.get("saml_metadata"):
+                            saml_meta = info["saml_metadata"]
+                            acs_url = saml_meta.get("acs_url", "")
+                            saml_response = saml_meta.get("saml_response", "")
+                            if acs_url and saml_response:
+                                print(f"    Running SAML SSO vulnerability tests...")
+                                saml_scanner = SAMLScanner(http)
+                                saml_findings = await saml_scanner.scan(
+                                    acs_url=acs_url, saml_response_b64=saml_response,
+                                )
+                                findings.extend(saml_findings)
+                                break
+            except Exception:
+                pass
 
-                await cb_server.stop()
+        await scanner.close()
 
-        oob_count = len([f for f in findings if "oob_confirmed" in f.tags])
-        std_count = len(findings) - oob_count
-        print(f"    Found {std_count} standard + {oob_count} OOB-confirmed vulnerabilities")
-        return {"findings": findings}
+        # Deduplicate
+        seen = set()
+        unique = []
+        for f in findings:
+            if f.id not in seen:
+                seen.add(f.id)
+                unique.append(f)
+
+        oob_count = sum(1 for f in unique if "oob_confirmed" in f.tags)
+        ai_count = sum(1 for f in unique if "ai_investigated" in f.tags or "page_targeted" in f.tags)
+        det_count = len(unique) - oob_count - ai_count
+        print(f"    TOTAL: {det_count} deterministic + {oob_count} OOB + {ai_count} AI-investigated "
+              f"({len(unique)} unique findings)")
+        return {"findings": unique}

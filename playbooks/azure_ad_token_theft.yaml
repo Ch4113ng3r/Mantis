@@ -1,0 +1,16 @@
+id: AZURE_AD_TOKEN_THEFT
+name: Azure AD Token Theft via Misconfigured Reply URL
+cwe:
+- CWE-601
+owasp: A07:2021 Authentication Failures
+severity_range: Critical
+description: Azure AD apps with overly permissive redirect_uri configurations enable token theft.
+detection:
+  strategy:
+  - Identify Azure AD-protected app (login.microsoftonline.com redirects)
+  - Find the client_id parameter in the OAuth flow
+  - 'Test redirect_uri variations: subdomain takeover, localhost, sibling pages'
+  - Test response_mode=fragment vs query token exposure
+  - Try implicit flow if hybrid app has it enabled
+references:
+- https://posts.specterops.io/azure-ad-application-registration-attacks/

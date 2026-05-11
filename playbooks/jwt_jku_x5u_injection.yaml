@@ -1,0 +1,22 @@
+id: JWT_JKU_X5U
+name: JWT JKU / X5U Header Injection
+cwe:
+- CWE-829
+owasp: A08:2021 Software Integrity Failures
+severity_range: Critical
+description: JWT jku (JWK Set URL) or x5u (X.509 cert URL) header pointing to attacker-controlled server.
+detection:
+  strategy:
+  - Capture JWT and decode header
+  - Modify jku to https://attacker.com/.well-known/jwks.json
+  - Host JWKS with attacker's public key
+  - Re-sign JWT with attacker's private key
+  - Submit and check if accepted
+exploitation:
+- Generate RSA key pair
+- Host JWKS at attacker.com containing the public key
+- Set jku in JWT header
+- Sign with private key
+- 'Forge any claims (sub: admin, roles: [admin])'
+references:
+- https://portswigger.net/web-security/jwt

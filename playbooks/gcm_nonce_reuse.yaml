@@ -1,0 +1,14 @@
+id: GCM_NONCE_REUSE
+name: AES-GCM Nonce Reuse
+cwe:
+- CWE-323
+owasp: A02:2021 Cryptographic Failures
+severity_range: Critical
+description: Reusing the same nonce twice with the same key destroys GCM confidentiality and authenticity.
+detection:
+  strategy:
+  - Identify endpoints that return encrypted data with visible nonces
+  - Collect many ciphertexts and check for nonce repetition
+  - If repetition occurs, XOR of plaintexts is recoverable
+references:
+- https://www.cryptologie.net/article/345/aes-gcm-and-breaking-it-on-nonce-reuse/

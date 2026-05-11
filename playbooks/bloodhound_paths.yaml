@@ -1,0 +1,28 @@
+id: BLOODHOUND
+name: Attack Path Mapping with BloodHound
+cwe: [CWE-269]
+owasp: A01:2021 Broken Access Control
+description: >
+  Map Active Directory attack paths using BloodHound to find shortest path
+  from compromised user/computer to Domain Admin.
+
+prerequisites:
+  - Domain user credentials
+  - SharpHound or BloodHound.py for data collection
+  - Neo4j database for BloodHound analysis
+
+execution:
+  - 'bloodhound-python -u user -p pass -d domain -c All -ns <DC>'
+  - 'Upload .json files to BloodHound GUI'
+  - 'Mark compromised user as Owned'
+  - 'Find Shortest Path to Domain Admins'
+
+common_paths:
+  - DCSync rights → DCSync attack → krbtgt hash → Golden Ticket
+  - GenericAll on user → Reset password → Login → Lateral movement
+  - WriteDACL on group → Add member → Inherit group permissions
+  - WriteOwner → Take ownership → Set DACL → Modify
+
+references:
+  - https://github.com/BloodHoundAD/BloodHound
+  - https://bloodhound.readthedocs.io/

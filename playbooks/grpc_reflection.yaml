@@ -1,0 +1,16 @@
+id: GRPC_REFLECTION
+name: gRPC Server Reflection
+cwe:
+- CWE-200
+owasp: A05:2021 Security Misconfiguration
+severity_range: Medium
+description: gRPC reflection enabled in production exposes all services and methods.
+detection:
+  strategy:
+  - Connect to gRPC endpoint with grpcurl
+  - 'Run: grpcurl -plaintext target:port list'
+  - If reflection works, enumerate all services and message types
+  - Test each method for auth bypass and injection
+evidence_needed: Service enumeration via grpc.reflection.v1alpha.ServerReflection
+references:
+- https://github.com/fullstorydev/grpcurl

@@ -1,0 +1,15 @@
+id: LENGTH_EXTENSION
+name: Length Extension Attack (MD5/SHA1 MAC)
+cwe:
+- CWE-326
+owasp: A02:2021 Cryptographic Failures
+severity_range: High
+description: MD5/SHA1-based MACs using H(secret||message) construction allow forging valid MACs for extended messages.
+detection:
+  strategy:
+  - Identify MAC verification endpoint (signed cookies, URL params)
+  - Confirm hash is MD5 or SHA1
+  - Confirm construction is concat (not HMAC)
+  - Use hashpump or hash_extender to forge
+references:
+- https://blog.skullsecurity.org/2012/everything-you-need-to-know-about-hash-length-extension-attacks

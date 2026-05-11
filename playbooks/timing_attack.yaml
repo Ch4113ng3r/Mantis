@@ -1,0 +1,15 @@
+id: TIMING_ATTACK
+name: Timing Attack
+cwe:
+- CWE-208
+owasp: A02:2021 Cryptographic Failures
+severity_range: Medium - High
+description: Non-constant-time string comparison leaks secrets character-by-character.
+detection:
+  strategy:
+  - Measure response times for authentication with different token prefixes
+  - Use statistical analysis (100+ requests per test) to filter noise
+  - Look for consistent timing differential as more characters match
+evidence_needed: Statistically significant timing differential correlating to prefix length
+references:
+- https://codahale.com/a-lesson-in-timing-attacks/

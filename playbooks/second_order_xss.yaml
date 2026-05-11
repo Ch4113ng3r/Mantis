@@ -1,0 +1,14 @@
+id: SECOND_ORDER_XSS
+name: Second-Order Stored XSS
+cwe:
+- CWE-79
+owasp: A03:2021 Injection
+severity_range: High
+description: XSS payload stored in one feature triggers in a different feature where output context differs.
+detection:
+  strategy:
+  - Submit polyglot XSS payloads in profile/comment/note fields
+  - Visit ALL pages that might render those fields (search, admin panel, exports)
+  - Look for execution in unexpected contexts (CSV export, PDF generation, email rendering)
+references:
+- https://portswigger.net/web-security/cross-site-scripting/stored

@@ -1,0 +1,16 @@
+id: CSP_BYPASS
+name: Content Security Policy Bypass
+cwe:
+- CWE-693
+owasp: A05:2021 Security Misconfiguration
+severity_range: Medium - High
+description: CSP misconfigurations enabling XSS despite header presence.
+detection:
+  strategy:
+  - Analyze CSP header with csp-evaluator.withgoogle.com
+  - Test for unsafe-inline, unsafe-eval
+  - Test wildcards in script-src
+  - Test for JSONP endpoints in allowed domains
+  - Test for known bypass gadgets in AngularJS, jQuery allowed domains
+references:
+- https://research.google/pubs/csp-is-dead-long-live-csp/

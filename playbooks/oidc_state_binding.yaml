@@ -1,0 +1,15 @@
+id: OIDC_STATE_BINDING
+name: OIDC nonce/state Binding Bypass
+cwe:
+- CWE-352
+owasp: A07:2021 Authentication Failures
+severity_range: High
+description: Missing or weak state parameter validation in OIDC flows enables CSRF and login fixation.
+detection:
+  strategy:
+  - Capture OIDC authorization request
+  - Try omitting state parameter
+  - Try fixed state value across sessions
+  - Test if nonce binds id_token to user session
+references:
+- https://openid.net/specs/openid-connect-core-1_0.html#NonceNotes

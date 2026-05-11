@@ -1,0 +1,14 @@
+id: ECDSA_CURVE_CONFUSION
+name: ECDSA Curve Confusion
+cwe:
+- CWE-326
+owasp: A02:2021 Cryptographic Failures
+severity_range: High
+description: Verifier accepts ECDSA signatures with mismatched curve parameters, enabling signature forgery.
+detection:
+  strategy:
+  - Find ECDSA signature verification endpoint
+  - Submit signature with curve parameters not matching the expected key
+  - Test if invalid-curve attack succeeds
+references:
+- https://eprint.iacr.org/2015/659.pdf

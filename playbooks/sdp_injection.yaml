@@ -1,0 +1,15 @@
+id: SDP_INJECTION
+name: WebRTC SDP Injection
+cwe:
+- CWE-74
+owasp: A03:2021 Injection
+severity_range: Medium - High
+description: Session Description Protocol parsing flaws in WebRTC signaling enable injection attacks.
+detection:
+  strategy:
+  - Identify WebRTC signaling endpoints
+  - Inject CRLF into SDP fields
+  - Test ICE candidate manipulation
+  - Test for SDP parser crashes
+references:
+- https://datatracker.ietf.org/doc/html/rfc4566

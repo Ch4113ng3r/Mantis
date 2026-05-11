@@ -1,0 +1,16 @@
+id: DEEP_LINK_HIJACK
+name: Deep Link Hijacking
+cwe:
+- CWE-285
+owasp: A05:2021 Security Misconfiguration
+severity_range: Medium - High
+description: Mobile app deep links or Universal Links accepting unverified URLs leading to account takeover.
+detection:
+  strategy:
+  - Identify mobile app companion to web target
+  - Check intent filters and Universal Link associated domain files
+  - Test asset-link verification (/.well-known/assetlinks.json)
+  - Test apple-app-site-association file
+  - Try registering a competing app with the same URL scheme
+references:
+- https://www.mbsd.jp/Whitepaper/IntentScheme.pdf

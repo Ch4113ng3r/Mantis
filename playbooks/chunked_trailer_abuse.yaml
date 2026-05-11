@@ -1,0 +1,14 @@
+id: CHUNKED_TRAILER
+name: Chunked Transfer Trailer Abuse
+cwe:
+- CWE-444
+owasp: A05:2021 Security Misconfiguration
+severity_range: High
+description: Sending chunked transfer encoding with trailer headers can bypass WAFs that only inspect the chunked body.
+detection:
+  strategy:
+  - 'Send Transfer-Encoding: chunked'
+  - Place malicious headers in the trailer section (after 0\r\n)
+  - Check if backend processes trailers but WAF doesn't
+references:
+- https://datatracker.ietf.org/doc/html/rfc7230#section-4.4

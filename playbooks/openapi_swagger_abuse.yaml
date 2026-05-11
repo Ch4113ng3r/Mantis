@@ -1,0 +1,21 @@
+id: OPENAPI_ABUSE
+name: OpenAPI/Swagger Specification Abuse
+cwe:
+- CWE-200
+owasp: A05:2021 Security Misconfiguration
+severity_range: Medium
+description: Exposed OpenAPI specs revealing internal endpoints, undocumented APIs, sensitive parameter names.
+detection:
+  paths:
+  - /swagger.json
+  - /openapi.json
+  - /api-docs
+  - /v3/api-docs
+  - /swagger-ui.html
+  strategy:
+  - Probe all common spec paths
+  - Parse spec for undocumented/internal endpoints
+  - Look for admin operations exposed in the schema
+  - Use spec to generate full attack surface inventory
+references:
+- https://swagger.io/specification/

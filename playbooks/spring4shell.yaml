@@ -1,0 +1,20 @@
+id: SPRING4SHELL
+name: Spring4Shell (CVE-2022-22965) and Related Data Binding RCE
+cwe:
+- CWE-915
+- CWE-470
+owasp: A08:2021 Software Integrity Failures
+severity_range: Critical
+description: Spring Framework data binding to dangerous Class properties enabling RCE via classloader manipulation.
+detection:
+  strategy:
+  - Identify Spring-based applications via response headers, error pages, /actuator endpoints
+  - Find POST endpoints accepting form data or JSON
+  - Test for class.module.classLoader.* property binding
+  - Check JDK version (CVE-2022-22965 requires JDK 9+)
+exploitation:
+- POST class.module.classLoader.resources.context.parent.pipeline.first.pattern=...
+- Specific exploit available in PoC repositories
+- 'Result: write tomcatwar.jsp to webroot, achieve RCE'
+references:
+- https://www.praetorian.com/blog/spring-core-jdk9-rce/

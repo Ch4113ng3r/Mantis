@@ -1,0 +1,14 @@
+id: XML_STRUCTURE
+name: XML Structure Injection (Non-XXE)
+cwe:
+- CWE-91
+owasp: A03:2021 Injection
+severity_range: Medium - High
+description: Modifying XML structure by injecting closing tags + new elements, bypassing schema validation.
+detection:
+  strategy:
+  - Find endpoints accepting XML input
+  - Inject </elem><evil>data</evil> to break out of expected element
+  - Add unauthorized fields (admin=true, role=admin)
+references:
+- https://owasp.org/www-community/vulnerabilities/XML_Injection

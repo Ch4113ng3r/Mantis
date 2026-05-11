@@ -1,0 +1,18 @@
+id: S3_BUCKET_POLICY
+name: AWS S3 Bucket Policy Misconfigurations
+cwe:
+- CWE-732
+owasp: A05:2021 Security Misconfiguration
+severity_range: Medium - Critical
+description: S3 bucket ACLs and policies allowing anonymous read/write or AllUsers/AuthenticatedUsers principals.
+detection:
+  strategy:
+  - Enumerate buckets associated with target domain
+  - aws s3 ls s3://bucket-name --no-sign-request
+  - Test PutObject without authentication
+  - Test GetBucketAcl, GetBucketPolicy for disclosure
+  - Check for cross-account assume role granted to S3
+tools:
+- aws-cli
+- s3scanner
+- S3 Bucket Finder

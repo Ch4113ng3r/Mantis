@@ -1,0 +1,15 @@
+id: SNI_CONFUSION
+name: SNI Confusion Attack
+cwe:
+- CWE-295
+owasp: A05:2021 Security Misconfiguration
+severity_range: Medium - High
+description: Mismatching SNI vs Host header to reach different virtual hosts behind the same TLS terminator.
+detection:
+  strategy:
+  - Connect with SNI=public.target.com
+  - 'Send Host: internal.target.com after TLS handshake'
+  - Check if internal vhost is reached
+  - Test admin/internal Host values
+references:
+- https://www.imperva.com/blog/sni-host-header-mismatch/

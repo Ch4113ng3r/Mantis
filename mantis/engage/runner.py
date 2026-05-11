@@ -31,6 +31,7 @@ class EngagementConfig:
     business_rules: Optional[str] = None         # Business context
     hunt_vuln: Optional[str] = None              # Specific vuln to hunt (Phase 5)
     budget_usd: float = 50.0
+    scan_depth: str = "smart"   # smart | investigative | deep (v1.4 AI mode)
 
     def __post_init__(self):
         if not self.session_id:

@@ -1,0 +1,14 @@
+id: HTTP2_CONTINUATION
+name: HTTP/2 CONTINUATION Flood (CVE-2024-27316)
+cwe:
+- CWE-400
+owasp: A04:2021 Insecure Design
+severity_range: High
+description: Sending HEADERS frame followed by infinite CONTINUATION frames without END_HEADERS, causing DoS.
+detection:
+  strategy:
+  - Identify HTTP/2 server
+  - Send malformed CONTINUATION frames without END_HEADERS flag
+  - Monitor for memory exhaustion or connection limit reached
+references:
+- https://kb.cert.org/vuls/id/421644

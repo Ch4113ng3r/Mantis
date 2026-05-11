@@ -1,0 +1,19 @@
+id: RFD
+name: Reflected File Download (RFD)
+cwe:
+- CWE-601
+owasp: A04:2021 Insecure Design
+severity_range: Medium - High
+description: Inject malicious filename in URL that causes the browser to download attacker-controlled content with attacker-chosen
+  extension.
+detection:
+  strategy:
+  - Find endpoints with path parameters reflected in Content-Disposition
+  - Test /api/file/MyReport.bat;param=value
+  - Test for missing Content-Disposition header (browser infers from URL)
+  - Test if response body contains user-controllable strings
+exploitation:
+- 'Craft URL: https://trusted.com/api/data/setup.bat;rfd=evil'
+- Response body contains command injection that runs when victim opens the downloaded .bat
+references:
+- https://www.trustwave.com/Resources/SpiderLabs-Blog/Reflected-File-Download---A-New-Web-Attack-Vector/

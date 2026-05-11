@@ -1,0 +1,20 @@
+id: K8S_SA_TOKEN
+name: Kubernetes Service Account Token Theft via SSRF
+cwe:
+- CWE-918
+owasp: A10:2021 SSRF
+severity_range: Critical
+description: Use SSRF in a containerized app to read /var/run/secrets/kubernetes.io/serviceaccount/token and pivot into the
+  cluster.
+detection:
+  strategy:
+  - Confirm SSRF or LFI exists in target
+  - Read /var/run/secrets/kubernetes.io/serviceaccount/token
+  - Read /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+  - Read /var/run/secrets/kubernetes.io/serviceaccount/namespace
+exploitation:
+- 'curl -k -H ''Authorization: Bearer $TOKEN'' https://kubernetes.default.svc/api/v1/namespaces'
+- Enumerate accessible resources with the SA token
+- Look for over-privileged SAs (cluster-admin, edit on kube-system)
+references:
+- https://blog.aquasec.com/kubernetes-service-account-rce

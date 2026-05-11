@@ -1,0 +1,15 @@
+id: JWT_CONFUSED_DEPUTY
+name: JWT Confused Deputy (Audience/Issuer Mix-up)
+cwe:
+- CWE-441
+owasp: A07:2021 Authentication Failures
+severity_range: High - Critical
+description: Service A accepts JWTs issued for Service B because audience/issuer validation is missing.
+detection:
+  strategy:
+  - Identify multiple services using the same IdP
+  - Capture JWT issued for service B
+  - Submit it to service A
+  - Check if A accepts despite aud mismatch
+references:
+- https://datatracker.ietf.org/doc/html/rfc8725

@@ -1,0 +1,16 @@
+id: SECOND_ORDER
+name: Second-Order Injection
+cwe:
+- CWE-89
+owasp: A03:2021 Injection
+severity_range: High - Critical
+description: Payload stored in one endpoint executes when read by another endpoint (delayed injection).
+detection:
+  strategy:
+  - Find features that store user data (profile, comments, settings)
+  - Submit SQLi payload as the stored value (e.g., username = ' OR 1=1--)
+  - Visit features that read the stored value (admin panel, search, exports)
+  - Look for SQLi behavior in the consuming feature
+evidence_needed: Injection triggered in a separate feature from where payload was stored
+references:
+- https://portswigger.net/kb/issues/00100210_sql-injection-second-order

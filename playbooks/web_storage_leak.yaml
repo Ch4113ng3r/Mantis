@@ -1,0 +1,15 @@
+id: WEB_STORAGE
+name: Web Storage Data Leakage
+cwe:
+- CWE-922
+owasp: A02:2021 Cryptographic Failures
+severity_range: Medium
+description: Sensitive data stored in localStorage/sessionStorage accessible to any JavaScript including XSS.
+detection:
+  strategy:
+  - Use browser devtools to inspect localStorage and sessionStorage
+  - 'Look for: JWT tokens, OAuth tokens, API keys, PII, session IDs'
+  - Test if XSS can exfiltrate this data
+evidence_needed: Sensitive data (tokens, credentials) found in web storage
+references:
+- https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html

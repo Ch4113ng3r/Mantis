@@ -1,0 +1,18 @@
+id: DOTNET_VIEWSTATE
+name: .NET ViewState Deserialization
+cwe:
+- CWE-502
+owasp: A08:2021 Software Integrity Failures
+severity_range: Critical
+description: ASP.NET __VIEWSTATE parameter deserialization without MAC validation enables RCE.
+detection:
+  strategy:
+  - Identify ASP.NET applications (.aspx, X-AspNet-Version header)
+  - Look for __VIEWSTATE form parameter in pages
+  - Try ysoserial.net to generate ViewState payload with known/leaked machineKey
+  - Check for web.config disclosure that reveals machineKey
+exploitation:
+- ysoserial.net.exe -p ViewState -g TypeConfuseDelegate -c 'cmd /c calc' --path='/page.aspx' --apppath='/' --decryptionalg='AES'
+  --decryptionkey='...' --validationalg='SHA1' --validationkey='...'
+references:
+- https://blog.liftsecurity.io/2014/08/27/asp-dot-net-viewstate/

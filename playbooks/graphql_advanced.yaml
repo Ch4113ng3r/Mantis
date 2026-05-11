@@ -1,0 +1,24 @@
+id: GRAPHQL_ADVANCED
+name: GraphQL Advanced Attacks
+cwe:
+- CWE-400
+- CWE-200
+owasp: A04:2021 Insecure Design
+severity_range: Medium - Critical
+description: Beyond basic introspection — query batching DoS, alias overloading, field suggestion, deep nested queries.
+detection:
+  attack_classes:
+    introspection: POST {"query":"{__schema{types{name fields{name}}}}"}
+    depth_attack: Nested 100+ levels deep causing exponential resolution
+    batching_dos: '[{q1},{q2},...{q1000}] in single request'
+    alias_overloading: 10000 aliases of same heavy query in one request
+    field_suggestion: Misspell field names — server may suggest valid ones in errors
+    introspection_disabled_bypass: Use field suggestion to enumerate schema even when introspection is disabled
+  strategy:
+  - Try introspection first
+  - If disabled, use field suggestion via error messages
+  - Build full schema via repeated misspellings
+  - Test depth/breadth attacks for DoS
+  - Test for SSRF in resolver fields
+references:
+- https://github.com/dolevf/graphql-cop

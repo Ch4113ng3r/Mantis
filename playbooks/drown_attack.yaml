@@ -1,0 +1,14 @@
+id: DROWN
+name: DROWN Attack (SSLv2 Cross-Protocol)
+cwe:
+- CWE-327
+owasp: A02:2021 Cryptographic Failures
+severity_range: High
+description: Server supporting SSLv2 enables decryption of TLS sessions sharing the same RSA key.
+detection:
+  tool: testssl.sh or nmap --script ssl-drown
+  strategy:
+  - nmap --script ssl-drown -p 443 target
+  - Check if SSLv2 is enabled OR if the RSA key is shared with another host that has SSLv2
+references:
+- https://drownattack.com/

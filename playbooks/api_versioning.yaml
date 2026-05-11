@@ -1,0 +1,15 @@
+id: API_VERSIONING
+name: API Versioning Bypass
+cwe:
+- CWE-1059
+owasp: A01:2021 Broken Access Control
+severity_range: Medium - High
+description: Older API versions retain vulnerabilities that have been fixed in newer versions.
+detection:
+  strategy:
+  - Identify the current API version (e.g., /api/v3/)
+  - 'Try previous versions: /api/v1/, /api/v2/, /api/v0/, /api/beta/'
+  - Test if older versions have different auth, missing checks, or extra fields
+evidence_needed: Older API version accessible with weaker security than current
+references:
+- https://owasp.org/API-Security/editions/2023/en/0xa8-security-misconfiguration/

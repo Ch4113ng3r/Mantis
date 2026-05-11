@@ -1,0 +1,22 @@
+id: SERVICE_WORKER_HIJACK
+name: Service Worker Hijacking
+cwe:
+- CWE-79
+- CWE-693
+owasp: A05:2021 Security Misconfiguration
+severity_range: High - Critical
+description: Register malicious Service Workers to intercept all requests on a domain, achieving persistent XSS that survives
+  browser restart.
+detection:
+  strategy:
+  - Find file upload functionality that allows .js files
+  - Find any endpoint that serves user-controlled content with text/javascript MIME type
+  - Check if Service-Worker-Allowed header is overly permissive
+  - Test if any subpath can serve attacker-controlled JS at the site root scope
+exploitation:
+- Upload malicious-sw.js to a location reachable at the root scope
+- 'Trigger registration: navigator.serviceWorker.register(''/uploads/malicious-sw.js'')'
+- Once installed, the SW intercepts ALL fetch events on the domain
+- Modify responses to inject XSS into every page the victim visits
+references:
+- https://blog.compass-security.com/2020/02/service-worker-injection/

@@ -1,0 +1,15 @@
+id: QUIC_ATTACKS
+name: QUIC / HTTP/3 Specific Attacks
+cwe:
+- CWE-400
+owasp: A05:2021 Security Misconfiguration
+severity_range: Medium - High
+description: QUIC connection migration abuse, 0-RTT replay, version negotiation downgrade.
+detection:
+  strategy:
+  - Confirm target offers HTTP/3 (Alt-Svc header)
+  - Test 0-RTT replay (idempotent requests replayed cause state changes)
+  - Test connection migration to different source IPs
+  - Try version negotiation downgrade
+references:
+- https://datatracker.ietf.org/doc/html/rfc9001

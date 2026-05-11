@@ -1,0 +1,15 @@
+id: COOKIE_TOSSING
+name: Cookie Tossing
+cwe:
+- CWE-565
+owasp: A01:2021 Broken Access Control
+severity_range: Medium - High
+description: Setting cookies from a subdomain to override parent-domain cookies, enabling session fixation.
+detection:
+  strategy:
+  - Find XSS on a subdomain (e.g., dev.target.com)
+  - Use document.cookie = 'session=ATTACKER_SESSION; Domain=.target.com'
+  - Victim visits target.com — uses attacker's session
+evidence_needed: Subdomain XSS leading to session fixation on parent domain
+references:
+- https://blog.ankursundara.com/cookie-bugs/

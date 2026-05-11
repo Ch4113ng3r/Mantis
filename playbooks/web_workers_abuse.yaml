@@ -1,0 +1,15 @@
+id: WEB_WORKERS_ABUSE
+name: Web Workers Cross-Origin Abuse
+cwe:
+- CWE-346
+owasp: A05:2021 Security Misconfiguration
+severity_range: Medium - High
+description: Abuse of Web Workers for cross-origin operations, prototype pollution propagation, or sandboxing bypass.
+detection:
+  strategy:
+  - Identify Worker() instantiations in JS
+  - Check if worker scripts process user input via postMessage
+  - Test for prototype pollution that propagates to worker context
+  - Check SharedWorker for cross-tab/cross-origin data leakage
+references:
+- https://html.spec.whatwg.org/multipage/workers.html

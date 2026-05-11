@@ -1,0 +1,19 @@
+id: CSTI
+name: Client-Side Template Injection
+cwe:
+- CWE-1336
+owasp: A03:2021 Injection
+severity_range: High - Critical
+description: Template injection in client-side frameworks (AngularJS, Vue.js) leading to XSS.
+detection:
+  payloads:
+  - '{{constructor.constructor(''alert(1)'')()}}'
+  - '{{$on.constructor(''alert(1)'')()}}'
+  - '{{[].pop.constructor(''alert(1)'')()}}'
+  strategy:
+  - Identify client-side template engines (AngularJS, Vue.js, Mustache, Handlebars)
+  - Inject {{constructor.constructor('alert(1)')()}} as user input
+  - Check if the expression evaluates client-side
+evidence_needed: JavaScript execution via client-side template evaluation
+references:
+- https://portswigger.net/research/xss-without-html-client-side-template-injection-with-angularjs

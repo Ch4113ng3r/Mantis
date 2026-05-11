@@ -1,0 +1,15 @@
+id: CLOUDFRONT_BYPASS
+name: CloudFront Origin Bypass
+cwe:
+- CWE-693
+owasp: A05:2021 Security Misconfiguration
+severity_range: High
+description: Direct connection to origin server bypassing CloudFront-enforced WAF and rate limits.
+detection:
+  strategy:
+  - Identify CloudFront via response headers (X-Amz-Cf-Id, Via)
+  - Find origin IP via SecurityTrails, censys, certificate transparency
+  - Test direct connection to origin
+  - Check if origin has IP allowlist for CloudFront IP ranges
+references:
+- https://blog.detectify.com/2018/09/19/spying-on-aws-region-cookies/

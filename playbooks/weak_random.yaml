@@ -1,0 +1,17 @@
+id: WEAK_RANDOM
+name: Weak Random Number Generation
+cwe:
+- CWE-330
+- CWE-338
+owasp: A02:2021 Cryptographic Failures
+severity_range: High
+description: Predictable random values in tokens, session IDs, or password reset codes.
+detection:
+  strategy:
+  - Collect multiple session IDs, password reset tokens, or CSRF tokens
+  - Analyze for sequential patterns, timestamp correlation, or low entropy
+  - Test if tokens can be predicted from timing or sequence
+  - Check for MD5/timestamp-based generation
+evidence_needed: Predictability demonstrated by guessing the next valid token
+references:
+- https://cwe.mitre.org/data/definitions/330.html

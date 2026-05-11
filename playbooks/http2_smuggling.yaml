@@ -1,0 +1,16 @@
+id: HTTP2_SMUGGLING
+name: HTTP/2 Request Smuggling (H2.CL, H2.TE, CRLF)
+cwe:
+- CWE-444
+owasp: A05:2021 Security Misconfiguration
+severity_range: Critical
+description: Server downgrades HTTP/2 to HTTP/1.1 unsafely, enabling smuggling via CL/TE confusion or CRLF in headers.
+detection:
+  strategy:
+  - Confirm target speaks HTTP/2 (ALPN h2)
+  - Use HTTP Request Smuggler Burp extension with HTTP/2 mode
+  - 'Test H2.CL: send :path with content-length header, response should disagree'
+  - 'Test H2.TE: transfer-encoding: chunked in HTTP/2 (forbidden but reachable)'
+  - Test CRLF injection in HTTP/2 pseudo-headers
+references:
+- https://portswigger.net/research/http2

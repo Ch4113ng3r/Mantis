@@ -1,0 +1,16 @@
+id: POSTMESSAGE
+name: postMessage Vulnerabilities
+cwe:
+- CWE-346
+owasp: A04:2021 Insecure Design
+severity_range: Medium - High
+description: Missing origin validation in window.postMessage handlers allowing cross-origin attacks.
+detection:
+  strategy:
+  - Search JavaScript for addEventListener('message', ...) handlers
+  - Check if event.origin is validated
+  - Test sending messages from attacker-controlled page
+  - Test if handler uses message data unsafely (eval, innerHTML, location)
+evidence_needed: Cross-origin postMessage processed without origin validation
+references:
+- https://portswigger.net/web-security/dom-based/postmessage
